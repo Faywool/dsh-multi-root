@@ -12,9 +12,7 @@
   "files": [
     "src",
     "scripts",
-    "assets",
     "cordis.patch.yml",
-    "screenshots.json",
     "docs",
     "CHANGELOG.md",
     "README.md",
