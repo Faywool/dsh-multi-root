@@ -718,46 +718,17 @@
               display: 'block',
               boxSizing: 'border-box',
               width: '100%',
-              height: '38px',
-              padding: '0 12px',
-              borderRadius: '8px',
+              height: '42px',
+              padding: '0 14px',
+              borderRadius: '9px',
               border: '1px solid rgba(128,128,128,.38)',
               background: 'rgba(0,0,0,.28)',
               color: 'var(--dsw-alias-label-primary, #f2f2f2)',
               fontFamily: 'inherit',
-              fontSize: '13.5px',
-              lineHeight: '36px',
+              fontSize: '14px',
+              lineHeight: '40px',
               outline: 'none',
               appearance: 'none',
-            }
-            var ghostSkin = {
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '32px',
-              padding: '0 16px',
-              borderRadius: '7px',
-              border: '1px solid rgba(128,128,128,.42)',
-              background: 'transparent',
-              color: 'inherit',
-              fontFamily: 'inherit',
-              fontSize: '12.5px',
-              cursor: 'pointer',
-            }
-            var primarySkin = {
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '32px',
-              padding: '0 18px',
-              borderRadius: '7px',
-              border: '1px solid var(--dsw-alias-brand-primary, #4a8fd6)',
-              background: 'transparent',
-              color: 'var(--dsw-alias-brand-primary, #7fb3e8)',
-              fontFamily: 'inherit',
-              fontSize: '12.5px',
-              fontWeight: '600',
-              cursor: busy ? 'default' : 'pointer',
             }
             children.push(h('div', {
               className: 'mr-overlay mr-overlay--nested',
@@ -791,16 +762,13 @@
                     : '技能名的前缀，只能用小写字母、数字、点、下划线和短横线。'),
                 edit.error === '' ? null : h('div', { className: 'mr-edit-error' }, edit.error),
                 h('div', { className: 'mr-sheet-actions' },
-                  h('button', {
-                    className: 'mr-btn',
-                    style: ghostSkin,
-                    type: 'button',
+                  h(SkinButton, {
+                    key: 'cancel',
                     onClick: function () { setEdit(null) },
                   }, '取消'),
-                  h('button', {
-                    className: 'mr-btn mr-primary',
-                    style: primarySkin,
-                    type: 'button',
+                  h(SkinButton, {
+                    key: 'save',
+                    primary: true,
                     disabled: busy,
                     onClick: submitEdit,
                   }, '保存'),
@@ -954,6 +922,56 @@
           h('path', { d: 'M3 7.5A1.5 1.5 0 0 1 4.5 6H9l1.8 2.2h8.7A1.5 1.5 0 0 1 21 9.7v8.8A1.5 1.5 0 0 1 19.5 20h-15A1.5 1.5 0 0 1 3 18.5z' }),
           h('path', { d: 'M7 3.2h4.2l1.5 1.9h4.6' }),
         )
+      }
+
+      /**
+       * A button that owns its own look entirely: inline styles for the base
+       * state (so host button resets cannot reach it) and inline hover/focus
+       * feedback driven by React state, because an inline background would
+       * otherwise beat any :hover rule from our stylesheet.
+       */
+      function SkinButton(props) {
+        var hovered = React.useState(false)
+        var over = hovered[0]
+        var setOver = hovered[1]
+        var primary = !!(props && props.primary)
+        var disabled = !!(props && props.disabled)
+        var base = {
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '34px',
+          padding: primary ? '0 18px' : '0 16px',
+          borderRadius: '8px',
+          border: primary
+            ? '1px solid var(--dsw-alias-brand-primary, #4a8fd6)'
+            : '1px solid rgba(128,128,128,.42)',
+          background: 'transparent',
+          color: primary ? 'var(--dsw-alias-brand-primary, #7fb3e8)' : 'inherit',
+          fontFamily: 'inherit',
+          fontSize: '13px',
+          fontWeight: primary ? '600' : '400',
+          lineHeight: '1',
+          cursor: disabled ? 'default' : 'pointer',
+          opacity: disabled ? '0.5' : '1',
+          transition: 'background-color .12s ease, border-color .12s ease',
+          appearance: 'none',
+          WebkitAppearance: 'none',
+        }
+        if (over && !disabled) {
+          base.background = primary ? 'rgba(74,143,214,.18)' : 'rgba(128,128,128,.18)'
+        }
+        return h('button', {
+          type: 'button',
+          className: props.className,
+          style: base,
+          disabled: disabled,
+          onClick: props.onClick,
+          onMouseEnter: function () { setOver(true) },
+          onMouseLeave: function () { setOver(false) },
+          onFocus: function () { setOver(true) },
+          onBlur: function () { setOver(false) },
+        }, props.children)
       }
 
       /**
