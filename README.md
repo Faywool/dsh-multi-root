@@ -96,7 +96,7 @@ workspace_find(query="src/api", alias="backend")
 - 切换工作区：下拉里列的是**工作区名字**（DSH 登记的名字；没有名字时用目录名），选中后紧跟一行显示该工作区的**完整路径**，一眼能对上左栏那个工作区。根是按工作区分开保存的；打开弹窗时默认选中左侧栏当前会话所在的那个工作区——客户端把 `localStorage['dsh.sessions.current']` 里的会话 id 带在 `GET /dsh-multi-root/state?session=…` 上，宿主用 `sessions.get(id).header.cwd` 换成目录再匹配
 - 每个根一行：左边是加粗的**别名**（悬停显示 id 与技能命名空间）、下面是等宽小字路径、右上角是 git 分支与脏标记、可写/只读徽章、技能开关徽章
 - 行右边只留两个常按的按钮「浏览」「设为只读/可写」，其余操作收进最右侧的「⋯」菜单：重命名、Skill Namespace、复制路径、启用/停用技能、在文件管理器中打开、上移、下移、移除。菜单是 fixed 定位的浮层，不会被弹窗的滚动区裁掉；点别处或按 Esc 关闭
-- 「重命名」和「Skill Namespace」在列表下方展开一行内联编辑（输入框 + 保存/取消，Enter 提交、Esc 取消）——**不用 `window.prompt`**：Electron 的渲染进程不支持它，调用会被静默吞成 `undefined`，点了等于没点
+- 「重命名」和「Skill Namespace」弹出小对话框改（输入框 + 取消/保存，Enter 提交、Esc 关闭、点遮罩关闭）——**不用 `window.prompt`**：Electron 的渲染进程不支持它，调用会被静默吞成 `undefined`，点了等于没点
 - 样式全部走 DSH 自己的主题令牌（`--dsw-alias-bg-layer-1/2`、`--dsw-alias-bg-overlay`、`--dsw-alias-border-l1/l2`、`--dsw-alias-label-primary/secondary` 等），所以亮色/暗色主题下与 DSH 自带界面同一套颜色、字号和圆角
 - 「添加仓库目录」直接弹系统目录选择框
 - 「浏览」进入只读文件浏览：面包屑、上一层、条目列表（目录优先、跳过 `node_modules` 等）、点文件看文本预览（256 KB 截断、二进制拒读）

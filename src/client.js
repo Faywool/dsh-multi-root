@@ -116,12 +116,15 @@
         '.mr-menu-sep{height:1px;margin:4px 6px;background:var(--dsw-alias-border-l1,#333)}',
         '.mr-danger{color:var(--dsw-alias-state-error-primary,#e08b8b)}',
         '.mr-empty{padding:18px 12px;color:var(--dsw-alias-label-secondary,#9a9a9a);text-align:center;font-size:12px}',
-        '.mr-edit{display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--dsw-alias-border-l2,#3a3a3a);border-radius:8px;background:var(--dsw-alias-bg-layer-2,#242424);flex-wrap:wrap}',
-        '.mr-edit-label{font-size:12px;color:var(--dsw-alias-label-secondary,#9a9a9a)}',
-        '.mr-input{flex:1;min-width:160px;height:28px;padding:0 8px;border-radius:6px;border:1px solid var(--dsw-alias-border-l1,#3a3a3a);background:var(--dsw-alias-bg-base,#1a1a1a);color:var(--dsw-alias-label-primary,#e6e6e6);font:inherit;font-size:12.5px;outline:none}',
+        '.mr-overlay--nested{z-index:1100;background:rgba(0,0,0,.45)}',
+        '.mr-sheet{display:flex;flex-direction:column;gap:9px;width:min(430px,90vw);padding:14px;border:1px solid var(--dsw-alias-border-l2,#3a3a3a);border-radius:10px;background:var(--dsw-alias-bg-layer-1,#1b1b1b);box-shadow:0 20px 50px rgba(0,0,0,.5)}',
+        '.mr-sheet-title{font-size:13px;font-weight:600;color:var(--dsw-alias-label-primary,#f0f0f0)}',
+        '.mr-sheet-hint{font-size:11.5px;line-height:1.5;color:var(--dsw-alias-label-secondary,#9a9a9a)}',
+        '.mr-sheet-actions{display:flex;justify-content:flex-end;gap:8px}',
+        '.mr-input{width:100%;height:28px;padding:0 8px;border-radius:6px;border:1px solid var(--dsw-alias-border-l1,#3a3a3a);background:var(--dsw-alias-bg-base,#1a1a1a);color:var(--dsw-alias-label-primary,#e6e6e6);font:inherit;font-size:12.5px;outline:none}',
         '.mr-input:focus{border-color:var(--dsw-alias-brand-primary,#4a8fd6)}',
         '.mr-primary{border-color:var(--dsw-alias-brand-primary,#4a8fd6);color:var(--dsw-alias-brand-primary,#7fb3e8)}',
-        '.mr-edit-error{flex-basis:100%;color:var(--dsw-alias-state-error-primary,#e08b8b);font-size:12px}',
+        '.mr-edit-error{color:var(--dsw-alias-state-error-primary,#e08b8b);font-size:12px}',
         '.mr-note{margin:0;color:var(--dsw-alias-label-secondary,#9a9a9a);font-size:12px;line-height:1.6}',
         '.mr-error{margin:0;color:var(--dsw-alias-state-error-primary,#e08b8b);font-size:12px}',
         '.mr-code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;color:var(--dsw-alias-label-secondary,#9a9a9a);word-break:break-all}',
@@ -688,8 +691,8 @@
                     bottom: menuFor.up ? menuFor.bottom + 'px' : 'auto',
                   },
                 },
-                  h('div', { className: 'mr-menu-item', role: 'menuitem', tabIndex: busy ? -1 : 0, 'aria-disabled': busy ? 'true' : 'false', onClick: function () { if (!busy) startEdit(root, 'alias') }, onKeyDown: keyActivate(busy, function () { startEdit(root, 'alias') }) }, '重命名'),
-                  h('div', { className: 'mr-menu-item', role: 'menuitem', tabIndex: busy ? -1 : 0, 'aria-disabled': busy ? 'true' : 'false', onClick: function () { if (!busy) startEdit(root, 'namespace') }, onKeyDown: keyActivate(busy, function () { startEdit(root, 'namespace') }) }, 'Skill Namespace'),
+                  h('div', { className: 'mr-menu-item', role: 'menuitem', tabIndex: busy ? -1 : 0, 'aria-disabled': busy ? 'true' : 'false', onClick: function () { if (!busy) { setMenuFor(null); startEdit(root, 'alias') } }, onKeyDown: keyActivate(busy, function () { setMenuFor(null); startEdit(root, 'alias') }) }, '重命名'),
+                  h('div', { className: 'mr-menu-item', role: 'menuitem', tabIndex: busy ? -1 : 0, 'aria-disabled': busy ? 'true' : 'false', onClick: function () { if (!busy) { setMenuFor(null); startEdit(root, 'namespace') } }, onKeyDown: keyActivate(busy, function () { setMenuFor(null); startEdit(root, 'namespace') }) }, 'Skill Namespace'),
                   h('div', { className: 'mr-menu-item', role: 'menuitem', tabIndex: busy ? -1 : 0, 'aria-disabled': busy ? 'true' : 'false', onClick: function () { if (!busy) { setMenuFor(null); onCopyPath(root) } }, onKeyDown: keyActivate(busy, function () { setMenuFor(null); onCopyPath(root) }) }, '复制路径'),
                   h('div', { className: 'mr-menu-item', role: 'menuitem', tabIndex: busy ? -1 : 0, 'aria-disabled': busy ? 'true' : 'false', onClick: function () { if (!busy) { setMenuFor(null); onSkills(root) } }, onKeyDown: keyActivate(busy, function () { setMenuFor(null); onSkills(root) }) }, root.skillsEnabled === true ? '停用技能' : '启用技能'),
                   h('div', { className: 'mr-menu-item', role: 'menuitem', tabIndex: busy ? -1 : 0, 'aria-disabled': busy ? 'true' : 'false', onClick: function () { if (!busy) { setMenuFor(null); onReveal(root) } }, onKeyDown: keyActivate(busy, function () { setMenuFor(null); onReveal(root) }) }, '在文件管理器中打开'),
@@ -705,38 +708,50 @@
           children.push(h('div', { className: 'mr-list', key: 'list' }, items))
 
           if (edit !== null) {
-            children.push(h('div', { className: 'mr-edit', key: 'edit' },
-              h('span', { className: 'mr-edit-label' },
-                (edit.field === 'alias' ? '重命名 ' : 'Skill Namespace：') + edit.label),
-              h('input', {
-                className: 'mr-input',
-                value: edit.value,
-                autoFocus: true,
-                spellCheck: false,
-                onChange: function (event) {
-                  setEdit({ id: edit.id, field: edit.field, label: edit.label, value: event.target.value, error: '' })
-                },
-                onKeyDown: function (event) {
-                  if (event.key === 'Enter') {
-                    event.preventDefault()
-                    submitEdit()
-                  } else if (event.key === 'Escape') {
-                    setEdit(null)
-                  }
-                },
-              }),
-              h('button', {
-                className: 'mr-btn mr-primary',
-                type: 'button',
-                disabled: busy,
-                onClick: submitEdit,
-              }, '保存'),
-              h('button', {
-                className: 'mr-btn',
-                type: 'button',
-                onClick: function () { setEdit(null) },
-              }, '取消'),
-              edit.error === '' ? null : h('span', { className: 'mr-edit-error' }, edit.error),
+            children.push(h('div', {
+              className: 'mr-overlay mr-overlay--nested',
+              key: 'edit',
+              onMouseDown: function (event) { if (event.target === event.currentTarget) setEdit(null) },
+            },
+              h('div', { className: 'mr-sheet', role: 'dialog', 'aria-modal': 'true' },
+                h('div', { className: 'mr-sheet-title' },
+                  edit.field === 'alias' ? '重命名 ' + edit.label : 'Skill Namespace：' + edit.label),
+                h('input', {
+                  className: 'mr-input',
+                  value: edit.value,
+                  autoFocus: true,
+                  spellCheck: false,
+                  onChange: function (event) {
+                    setEdit({ id: edit.id, field: edit.field, label: edit.label, value: event.target.value, error: '' })
+                  },
+                  onKeyDown: function (event) {
+                    if (event.key === 'Enter') {
+                      event.preventDefault()
+                      submitEdit()
+                    } else if (event.key === 'Escape') {
+                      setEdit(null)
+                    }
+                  },
+                }),
+                h('div', { className: 'mr-sheet-hint' },
+                  edit.field === 'alias'
+                    ? '显示名，可以含大写字母和空格。技能命名空间不会跟着变。'
+                    : '技能名的前缀，只能用小写字母、数字、点、下划线和短横线。'),
+                edit.error === '' ? null : h('div', { className: 'mr-edit-error' }, edit.error),
+                h('div', { className: 'mr-sheet-actions' },
+                  h('button', {
+                    className: 'mr-btn',
+                    type: 'button',
+                    onClick: function () { setEdit(null) },
+                  }, '取消'),
+                  h('button', {
+                    className: 'mr-btn mr-primary',
+                    type: 'button',
+                    disabled: busy,
+                    onClick: submitEdit,
+                  }, '保存'),
+                ),
+              ),
             ))
           }
 

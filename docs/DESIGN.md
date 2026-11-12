@@ -169,7 +169,7 @@ DSH 0.2.2 不要求客户端插件有构建产物：`package.json` 里 `exports[
 
 根表每行两段：左半 `.mr-main`（加粗别名 + 徽章 + git 在上、等宽路径在下），右半 `.mr-actions`（浏览、可写/只读切换、以及最右侧的 `⋯`）。次要操作全部收进 `⋯` 菜单：重命名、Skill Namespace、复制路径、启用/停用技能、在文件管理器中打开、上移、下移、移除。菜单用 `position:fixed` + 点击时 `getBoundingClientRect()` 算出的 `right/top`（或 `bottom`）渲染——绝对定位会被 `.mr-dialog-body{overflow:auto}` 裁掉，这是实测出来的（`.mr-list` 的 `overflow:hidden` 也一样会裁）。
 
-**改别名与改命名空间不能用 `window.prompt`。** Electron 渲染进程不支持它：调用不会弹框，而是抛错或返回 `undefined`，原来的代码把它包在 try 里，于是"点了没反应"。现在改成列表下方的一行内联编辑（`.mr-edit`：标签 + 输入框 + 保存/取消，Enter 提交、Esc 取消），提交成功才收起，失败把服务端的 `error` 原样显示在 `.mr-edit-error`。
+**改别名与改命名空间不能用 `window.prompt`。** Electron 渲染进程不支持它：调用不会弹框，而是抛错或返回 `undefined`，原来的代码把它包在 try 里，于是"点了没反应"。现在改成弹窗内的一个小对话框（`.mr-overlay--nested` + `.mr-sheet`：标题 + 输入框 + 一行说明 + 错误行 + 取消/保存），Enter 提交、Esc 关闭、点遮罩关闭，提交成功才收起，失败把服务端的 `error` 原样显示在 `.mr-edit-error`。单独一层浮层而不是插在列表里，是因为行内展开会把下面「添加仓库目录 / 刷新」顶走，而且输入到一半时列表高度跳动。
 
 **弹窗要跟着左侧栏当前会话走。** 客户端没有"当前工作区"的 API（`workspaces` 服务只有 create/rename/delete/archive，没有 list store；`sidebar.footer.action` 只收到 `{wide}`；也没有任何"选中会话"客户端事件）。可靠链路是：客户端读它自己持久化的 `localStorage['dsh.sessions.current']` 拿 session id → 请求 `GET /dsh-multi-root/state?session=<id>` → 宿主 `sessions.get(id).header.cwd` 换成目录 → 与 `workspaceRegistry.list()` 的路径做 `canonicalKey` 等值/前缀匹配，返回 `current`。客户端 `pickWorkspace()` 的优先级是：手动选的 → `current` → 第一个。CLI 调用方没有 session 参数时，宿主退回"最近一次会话事件记下的目录"。
 
