@@ -1,9 +1,24 @@
 name: ci
 
+# Manual only for now.
+#
+# This workflow is correct (it runs `npm run check` and `npm test` on Node 22
+# and 24), but GitHub refuses to start the jobs on this account and reports
+# "The job was not started because your account is locked due to a billing
+# issue." Every push therefore showed a red cross that had nothing to do with
+# the code.
+#
+# Once billing is sorted out, restore the automatic triggers:
+#
+#   on:
+#     push:
+#       branches: [main]
+#     pull_request:
+#
+# Until then, run it by hand from the Actions tab (or just run `npm test`
+# locally, which is what it does).
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
