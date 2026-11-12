@@ -89,6 +89,8 @@ export function apply(ctx, input) {
 
 `id` 是稳定身份（UUID），所有写操作按 `id → alias → 绝对路径` 命中；`alias` 只是给人看的标签，`aliasId` 是技能命名空间。版本号是 2：读到 v1 时会先补齐 `id`/`aliasId`/`skillsEnabled`/`addedAt` 再**立刻写回**，否则每次读取都会重新生成 id。
 
+派生别名保留目录名原本的大小写（`PSREF_Backend` 不会变成 `psref_backend`），只有唯一性判定是小写不敏感的——`Api` 与 `api` 不能共存，先来的保留原拼写，后到的折成 `api-2`。`aliasId` 相反：它是技能名的前缀，必须是小写 kebab，所以那里仍然强制折叠。
+
 为什么是路径：工作区 id 在 `workspace.json` 里，但插件不该读它（那是官方存储）；而会话给我们的唯一稳定信息就是 `cwd`。`canonicalKey()` 统一分隔符、去尾斜杠、Windows 下小写，于是 `D:\WS` 与 `d:/ws/` 命中同一条。
 
 所有写操作走 `RootStore` 内部的一条 promise 链串行化，避免并发 `attach` 互相覆盖。
@@ -160,6 +162,8 @@ DSH 0.2.2 不要求客户端插件有构建产物：`package.json` 里 `exports[
 工作区选择器的显示值是**名字**、值是**路径**：`workspaceName(item)` 先取 `workspaceRegistry` 给的 `title`，没有就取路径最后一段；选中后紧跟在工具栏下面渲染一行 `.mr-ws-path` 显示完整路径（等宽小字、可换行），所以两个同名工作区也不会认错，而 `<option>` 的 `title` 属性同时挂着完整路径供悬停查看。切工作区只是改查询条件——根表本身按工作区路径分组，切过去自然是那一套。
 
 行尾「⋯」菜单的每一项是 `div[role="menuitem"]` 而不是 `<button>`：宿主里 `<button>` 会被浏览器按系统控件画一遍（浅色按钮底 + 深色文字），即使写了 `background`/`color` 也压不住，真机上就出现「浅灰菜单 + 黑字」和整个弹窗不搭的情况。`div` 没有这些默认绘制，颜色完全由我们给：菜单底色取 `--dsw-alias-bg-layer-1`（与弹窗同一个面）、文字取 `label-primary`、悬停取 `bg-layer-2`、禁用态用 `aria-disabled="true"` 配 `.38` 透明度。键盘上 Enter/Space 触发、Esc 关闭、Tab 可聚焦（`tabIndex` 在禁用时给 `-1`）。
+
+行的信息密度：别名 14.5px/600 是这一行唯一的大字，路径 12px 等宽次要色，徽章 11px；git 分支是可选列——拿不到状态时**整段不渲染**，不画占位符。`GitStatusCache.peek()` 为此加了 `allowStale` 参数：面板和提示词表都取「最后一次已知值」，五行十秒前的分支名也比空白有用。
 
 样式只用 DSH 已发布的主题令牌（`client/Theme/listTokens` 里那 14 个 `--dsw-alias-*` 加 `--dsw-specific-sidebar-fill`），全部带 fallback；早先自造的 `--dsw-text-primary` / `--dsw-surface` / `--dsw-border` 并不存在，等于一直在吃 fallback，所以看起来"不像 DSH"。常用映射：弹窗 `bg-layer-1`、浮层 `bg-overlay`、弱边框 `border-l1`、强边框 `border-l2`、主文字 `label-primary`、次文字 `label-secondary`、错误 `state-error-primary`。
 

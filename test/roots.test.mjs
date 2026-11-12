@@ -14,8 +14,10 @@ test('aliasFor folds a directory name into a usable label', () => {
   assert.equal(aliasFor('D:\\work\\my_service'), 'my_service')
   assert.equal(aliasFor('D:\\repo\\v1.2_legacy'), 'v1.2_legacy')
   assert.equal(aliasFor('D:\\repo\\my repo -- two'), 'my-repo-two')
-  assert.equal(aliasFor('D:\\'), 'd')
+  assert.equal(aliasFor('D:\\'), 'D')
   assert.equal(aliasFor('D:\\repo\\数据目录'), '数据目录')
+  assert.equal(aliasFor('D:\\repo\\PSREF_Backend'), 'PSREF_Backend', 'case is part of the label')
+  assert.equal(aliasFor('D:\\repo\\psref-app'), 'psref-app')
 })
 
 test('uniqueAlias never hands out a taken label', () => {

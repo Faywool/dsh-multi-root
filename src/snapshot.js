@@ -118,7 +118,7 @@ export class RootSnapshot {
    * @returns {{ branch: string, dirty: boolean } | undefined} cached status, if fresh.
    */
   gitStatus(directory) {
-    return this.#git?.peek(directory)
+    return this.#git?.peek(directory, true)
   }
 
   /**

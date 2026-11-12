@@ -78,14 +78,20 @@ export class GitStatusCache {
   }
 
   /**
-   * The cached status when it is still fresh.
+   * The cached status, when it is still fresh.
+   *
+   * `allowStale` is for display paths (the panel, the prompt table): a five
+   * second old branch name is far better than a blank cell, and the periodic
+   * refresh is what keeps it honest.
+   *
    * @param {string} directory - an absolute directory path.
+   * @param {boolean} [allowStale=false] - return the last known value regardless of age.
    * @returns {{ branch: string, dirty: boolean } | undefined} the status, if known.
    */
-  peek(directory) {
+  peek(directory, allowStale = false) {
     const entry = this.#entries.get(directory)
     if (entry === undefined) return undefined
-    if (Date.now() - entry.at > this.#ttlMs) return undefined
+    if (!allowStale && Date.now() - entry.at > this.#ttlMs) return undefined
     return entry.value
   }
 

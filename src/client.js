@@ -96,8 +96,8 @@
         '.mr-item:hover{background:var(--dsw-alias-bg-layer-2,#191919)}',
         '.mr-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}',
         '.mr-line{display:flex;align-items:center;gap:8px;min-width:0}',
-        '.mr-alias{font-size:13px;font-weight:600;color:var(--dsw-alias-label-primary,#f0f0f0);white-space:nowrap}',
-        '.mr-path{min-width:0;color:var(--dsw-alias-label-secondary,#8f8f8f);font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+        '.mr-alias{font-size:14.5px;font-weight:600;letter-spacing:.01em;color:var(--dsw-alias-label-primary,#f0f0f0);white-space:nowrap}',
+        '.mr-path{min-width:0;color:var(--dsw-alias-label-secondary,#8f8f8f);font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
         '.mr-badge{flex:none;font-size:11px;line-height:16px;padding:0 7px;border-radius:99px;border:1px solid var(--dsw-alias-border-l1,#3a3a3a);color:var(--dsw-alias-label-secondary,#9a9a9a)}',
         '.mr-badge[data-mode="readwrite"]{color:var(--dsw-alias-state-success-primary,#7fd1a0)}',
         '.mr-badge[data-mode="readonly"]{color:var(--dsw-alias-state-warn-primary,#d9b06a)}',
@@ -633,10 +633,10 @@
                     h('span', { className: 'mr-badge', 'data-mode': root.mode }, formatMode(root.mode)),
                     h('span', { className: 'mr-badge', 'data-mode': root.skillsEnabled === true ? 'readwrite' : 'readonly' },
                       root.skillsEnabled === true ? 'skills' : 'no skills'),
-                    h('span', { className: 'mr-git' },
-                      git === null || git === undefined
-                        ? '—'
-                        : (git.branch || '（无分支）') + (git.dirty ? ' *' : '')),
+                    root.git === null || root.git === undefined
+                      ? null
+                      : h('span', { className: 'mr-git' },
+                        (root.git.branch || '（无分支）') + (root.git.dirty ? ' *' : '')),
                   ),
                   h('span', { className: 'mr-path', title: root.path }, root.path),
                 ),

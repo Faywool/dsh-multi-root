@@ -81,8 +81,10 @@ export function normaliseAliasId(value, fallback) {
 export function aliasFor(path) {
   const trimmed = path.replace(/[\\/]+$/, '')
   const base = basename(trimmed) || trimmed.replace(/[^\p{L}\p{N}]+/gu, '')
+  // Case is part of the name a person reads (`PSREF_Backend` is not
+  // `psref_backend`), so it is preserved here. Uniqueness is still decided
+  // case-insensitively — see `uniqueAlias` — so `Api` and `api` cannot coexist.
   const folded = base
-    .toLowerCase()
     .replace(/[^\p{L}\p{N}._-]+/gu, '-')
     .replace(/-{2,}/g, '-')
     .replace(/^[-.]+|[-.]+$/g, '')
