@@ -159,6 +159,8 @@ DSH 0.2.2 不要求客户端插件有构建产物：`package.json` 里 `exports[
 
 工作区选择器的显示值是**名字**、值是**路径**：`workspaceName(item)` 先取 `workspaceRegistry` 给的 `title`，没有就取路径最后一段；选中后紧跟在工具栏下面渲染一行 `.mr-ws-path` 显示完整路径（等宽小字、可换行），所以两个同名工作区也不会认错，而 `<option>` 的 `title` 属性同时挂着完整路径供悬停查看。切工作区只是改查询条件——根表本身按工作区路径分组，切过去自然是那一套。
 
+行尾「⋯」菜单的每一项是 `div[role="menuitem"]` 而不是 `<button>`：宿主里 `<button>` 会被浏览器按系统控件画一遍（浅色按钮底 + 深色文字），即使写了 `background`/`color` 也压不住，真机上就出现「浅灰菜单 + 黑字」和整个弹窗不搭的情况。`div` 没有这些默认绘制，颜色完全由我们给：菜单底色取 `--dsw-alias-bg-layer-1`（与弹窗同一个面）、文字取 `label-primary`、悬停取 `bg-layer-2`、禁用态用 `aria-disabled="true"` 配 `.38` 透明度。键盘上 Enter/Space 触发、Esc 关闭、Tab 可聚焦（`tabIndex` 在禁用时给 `-1`）。
+
 样式只用 DSH 已发布的主题令牌（`client/Theme/listTokens` 里那 14 个 `--dsw-alias-*` 加 `--dsw-specific-sidebar-fill`），全部带 fallback；早先自造的 `--dsw-text-primary` / `--dsw-surface` / `--dsw-border` 并不存在，等于一直在吃 fallback，所以看起来"不像 DSH"。常用映射：弹窗 `bg-layer-1`、浮层 `bg-overlay`、弱边框 `border-l1`、强边框 `border-l2`、主文字 `label-primary`、次文字 `label-secondary`、错误 `state-error-primary`。
 
 根表每行两段：左半 `.mr-main`（加粗别名 + 徽章 + git 在上、等宽路径在下），右半 `.mr-actions`（浏览、可写/只读切换、以及最右侧的 `⋯`）。次要操作全部收进 `⋯` 菜单：重命名、Skill Namespace、复制路径、启用/停用技能、在文件管理器中打开、上移、下移、移除。菜单用 `position:fixed` + 点击时 `getBoundingClientRect()` 算出的 `right/top`（或 `bottom`）渲染——绝对定位会被 `.mr-dialog-body{overflow:auto}` 裁掉，这是实测出来的（`.mr-list` 的 `overflow:hidden` 也一样会裁）。

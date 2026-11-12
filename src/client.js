@@ -109,10 +109,10 @@
         '.mr-icon-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border-radius:6px;border:1px solid transparent;background:transparent;color:var(--dsw-alias-label-secondary,#9a9a9a);font:inherit;font-size:15px;line-height:1;cursor:pointer;appearance:none;-webkit-appearance:none}',
         '.mr-icon-btn:hover{background:var(--dsw-alias-bg-layer-2,#242424);color:var(--dsw-alias-label-primary,#e6e6e6)}',
         '.mr-icon-btn[aria-expanded="true"]{background:var(--dsw-alias-bg-layer-2,#242424);border-color:var(--dsw-alias-border-l1,#3a3a3a);color:var(--dsw-alias-label-primary,#e6e6e6)}',
-        '.mr-menu{position:fixed;z-index:1200;min-width:200px;display:flex;flex-direction:column;padding:5px;border:1px solid var(--dsw-alias-border-l1,#3a3a3a);border-radius:8px;background:var(--dsw-alias-bg-overlay,#232323);box-shadow:0 12px 32px rgba(0,0,0,.5)}',
-        '.mr-menu-item{display:flex;align-items:center;gap:8px;padding:6px 9px;border:0;border-radius:6px;background:transparent;color:inherit;font:inherit;font-size:12.5px;text-align:left;cursor:pointer;white-space:nowrap}',
-        '.mr-menu-item:hover{background:var(--dsw-alias-bg-layer-2,#2a2a2a)}',
-        '.mr-menu-item:disabled{opacity:.4;cursor:default;background:transparent}',
+        '.mr-menu{position:fixed;z-index:1200;min-width:196px;display:flex;flex-direction:column;gap:1px;padding:5px;border:1px solid var(--dsw-alias-border-l1,#3a3a3a);border-radius:10px;background:var(--dsw-alias-bg-layer-1,#1b1b1b);box-shadow:0 16px 40px rgba(0,0,0,.55)}',
+        '.mr-menu-item{display:flex;align-items:center;height:30px;padding:0 10px;border-radius:6px;background:transparent;color:var(--dsw-alias-label-primary,#e6e6e6);font:inherit;font-size:12.5px;line-height:1;text-align:left;white-space:nowrap;cursor:pointer;user-select:none;outline:none}',
+        '.mr-menu-item:hover,.mr-menu-item:focus-visible{background:var(--dsw-alias-bg-layer-2,#242424)}',
+        '.mr-menu-item[aria-disabled="true"]{opacity:.38;cursor:default;background:transparent}',
         '.mr-menu-sep{height:1px;margin:4px 6px;background:var(--dsw-alias-border-l1,#333)}',
         '.mr-danger{color:var(--dsw-alias-state-error-primary,#e08b8b)}',
         '.mr-empty{padding:18px 12px;color:var(--dsw-alias-label-secondary,#9a9a9a);text-align:center;font-size:12px}',
@@ -345,6 +345,16 @@
         var path = item === undefined || item === null || typeof item.path !== 'string' ? '' : item.path
         var parts = path.split(/[\\/]/).filter(function (part) { return part !== '' })
         return parts.length > 0 ? parts[parts.length - 1] : path
+      }
+
+      function keyActivate(disabled, run) {
+        return function (event) {
+          if (disabled) return
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            run()
+          }
+        }
       }
 
       function Manager(props) {
@@ -678,40 +688,16 @@
                     bottom: menuFor.up ? menuFor.bottom + 'px' : 'auto',
                   },
                 },
-                  h('button', {
-                    className: 'mr-menu-item', type: 'button', role: 'menuitem', disabled: busy,
-                    onClick: function () { startEdit(root, 'alias') },
-                  }, '重命名'),
-                  h('button', {
-                    className: 'mr-menu-item', type: 'button', role: 'menuitem', disabled: busy,
-                    onClick: function () { startEdit(root, 'namespace') },
-                  }, 'Skill Namespace'),
-                  h('button', {
-                    className: 'mr-menu-item', type: 'button', role: 'menuitem', disabled: busy,
-                    onClick: function () { setMenuFor(null); onCopyPath(root) },
-                  }, '复制路径'),
-                  h('button', {
-                    className: 'mr-menu-item', type: 'button', role: 'menuitem', disabled: busy,
-                    onClick: function () { setMenuFor(null); onSkills(root) },
-                  }, root.skillsEnabled === true ? '停用技能' : '启用技能'),
-                  h('button', {
-                    className: 'mr-menu-item', type: 'button', role: 'menuitem', disabled: busy,
-                    onClick: function () { setMenuFor(null); onReveal(root) },
-                  }, '在文件管理器中打开'),
+                  h('div', { className: 'mr-menu-item', role: 'menuitem', tabIndex: busy ? -1 : 0, 'aria-disabled': busy ? 'true' : 'false', onClick: function () { if (!busy) startEdit(root, 'alias') }, onKeyDown: keyActivate(busy, function () { startEdit(root, 'alias') }) }, '重命名'),
+                  h('div', { className: 'mr-menu-item', role: 'menuitem', tabIndex: busy ? -1 : 0, 'aria-disabled': busy ? 'true' : 'false', onClick: function () { if (!busy) startEdit(root, 'namespace') }, onKeyDown: keyActivate(busy, function () { startEdit(root, 'namespace') }) }, 'Skill Namespace'),
+                  h('div', { className: 'mr-menu-item', role: 'menuitem', tabIndex: busy ? -1 : 0, 'aria-disabled': busy ? 'true' : 'false', onClick: function () { if (!busy) { setMenuFor(null); onCopyPath(root) } }, onKeyDown: keyActivate(busy, function () { setMenuFor(null); onCopyPath(root) }) }, '复制路径'),
+                  h('div', { className: 'mr-menu-item', role: 'menuitem', tabIndex: busy ? -1 : 0, 'aria-disabled': busy ? 'true' : 'false', onClick: function () { if (!busy) { setMenuFor(null); onSkills(root) } }, onKeyDown: keyActivate(busy, function () { setMenuFor(null); onSkills(root) }) }, root.skillsEnabled === true ? '停用技能' : '启用技能'),
+                  h('div', { className: 'mr-menu-item', role: 'menuitem', tabIndex: busy ? -1 : 0, 'aria-disabled': busy ? 'true' : 'false', onClick: function () { if (!busy) { setMenuFor(null); onReveal(root) } }, onKeyDown: keyActivate(busy, function () { setMenuFor(null); onReveal(root) }) }, '在文件管理器中打开'),
                   h('div', { className: 'mr-menu-sep' }),
-                  h('button', {
-                    className: 'mr-menu-item', type: 'button', role: 'menuitem', disabled: busy || index === 0,
-                    onClick: function () { setMenuFor(null); onMove(root, 'up') },
-                  }, '上移'),
-                  h('button', {
-                    className: 'mr-menu-item', type: 'button', role: 'menuitem', disabled: busy || index === roots.length - 1,
-                    onClick: function () { setMenuFor(null); onMove(root, 'down') },
-                  }, '下移'),
+                  h('div', { className: 'mr-menu-item', role: 'menuitem', tabIndex: busy || index === 0 ? -1 : 0, 'aria-disabled': busy || index === 0 ? 'true' : 'false', onClick: function () { if (!busy && index !== 0) { setMenuFor(null); onMove(root, 'up') } }, onKeyDown: keyActivate(busy || index === 0, function () { setMenuFor(null); onMove(root, 'up') }) }, '上移'),
+                  h('div', { className: 'mr-menu-item', role: 'menuitem', tabIndex: busy || index === roots.length - 1 ? -1 : 0, 'aria-disabled': busy || index === roots.length - 1 ? 'true' : 'false', onClick: function () { if (!busy && index !== roots.length - 1) { setMenuFor(null); onMove(root, 'down') } }, onKeyDown: keyActivate(busy || index === roots.length - 1, function () { setMenuFor(null); onMove(root, 'down') }) }, '下移'),
                   h('div', { className: 'mr-menu-sep' }),
-                  h('button', {
-                    className: 'mr-menu-item mr-danger', type: 'button', role: 'menuitem', disabled: busy,
-                    onClick: function () { setMenuFor(null); onDetach(root) },
-                  }, '移除'),
+                  h('div', { className: 'mr-menu-item mr-danger', role: 'menuitem', tabIndex: busy ? -1 : 0, 'aria-disabled': busy ? 'true' : 'false', onClick: function () { if (!busy) { setMenuFor(null); onDetach(root) } }, onKeyDown: keyActivate(busy, function () { setMenuFor(null); onDetach(root) }) }, '移除'),
                 ) : null,
               ))
             })
