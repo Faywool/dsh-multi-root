@@ -39,7 +39,12 @@ export const DEFAULTS = Object.freeze({
   injectPrompt: true,
   promptMaxChars: 4000,
   showGit: true,
-  devReload: false,
+  // On by default: an installed bundle never changes on disk, so the watcher
+  // costs one idle fs.watch handle, while a `link:` checkout gets hot reload
+  // without anyone having to touch a config file (bundle config in
+  // cordis.patch.yml is only read when the composition is built, so a config
+  // switch can never help a running instance see an edited bundle).
+  devReload: true,
 })
 
 /**
@@ -179,6 +184,6 @@ export function resolveConfig(input) {
       ? promptMaxChars
       : DEFAULTS.promptMaxChars,
     showGit: input?.showGit !== false,
-    devReload: input?.devReload === true,
+    devReload: input?.devReload === undefined ? DEFAULTS.devReload : input.devReload === true,
   }
 }

@@ -718,15 +718,15 @@
               display: 'block',
               boxSizing: 'border-box',
               width: '100%',
-              height: '42px',
-              padding: '0 14px',
-              borderRadius: '9px',
-              border: '1px solid rgba(128,128,128,.38)',
-              background: 'rgba(0,0,0,.28)',
+              height: '36px',
+              padding: '0 12px',
+              borderRadius: '8px',
+              border: '1px solid rgba(128,128,128,.34)',
+              background: 'rgba(0,0,0,.24)',
               color: 'var(--dsw-alias-label-primary, #f2f2f2)',
               fontFamily: 'inherit',
-              fontSize: '14px',
-              lineHeight: '40px',
+              fontSize: '13.5px',
+              lineHeight: '34px',
               outline: 'none',
               appearance: 'none',
             }
@@ -940,26 +940,24 @@
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          height: '34px',
-          padding: primary ? '0 18px' : '0 16px',
+          height: '32px',
+          padding: primary ? '0 16px' : '0 14px',
           borderRadius: '8px',
-          border: primary
-            ? '1px solid var(--dsw-alias-brand-primary, #4a8fd6)'
-            : '1px solid rgba(128,128,128,.42)',
+          border: '1px solid rgba(128,128,128,.30)',
           background: 'transparent',
-          color: primary ? 'var(--dsw-alias-brand-primary, #7fb3e8)' : 'inherit',
+          color: 'inherit',
           fontFamily: 'inherit',
           fontSize: '13px',
           fontWeight: primary ? '600' : '400',
           lineHeight: '1',
           cursor: disabled ? 'default' : 'pointer',
           opacity: disabled ? '0.5' : '1',
-          transition: 'background-color .12s ease, border-color .12s ease',
+          transition: 'border-color .12s ease, color .12s ease',
           appearance: 'none',
           WebkitAppearance: 'none',
         }
         if (over && !disabled) {
-          base.background = primary ? 'rgba(74,143,214,.18)' : 'rgba(128,128,128,.18)'
+          base.borderColor = 'var(--dsw-alias-border-l2, rgba(170,170,170,.78))'
         }
         return h('button', {
           type: 'button',

@@ -194,7 +194,7 @@ npm run check  # 对 src 下每个文件跑 node --check（不需要构建）
 
 改完 `src/client.js` 之后，**页面上刷新是没用的**。宿主按 `mtime`/`ctime`/`size` 给客户端包算一个指纹，把它写进 URL（`/plugins/??<id>/client.js&rev=<hash>`），再用 `cache-control: public, max-age=31536000, immutable` 发出去；同一个指纹就是同一份字节，浏览器会记一年。指纹只在两种情况下变：插件这行重启，或者有人调用 `ctx.clientModules.rebuilt(id)`。
 
-这个插件默认开了 `devReload`：它 watch 自己的客户端包，文件一变就调 `rebuilt()`，指纹和 URL 一起换新，打开的页面会拿到新代码。如果没生效，日志里会有：
+这个插件默认开了 `devReload`（`DEFAULTS.devReload = true`，安装版只是多一个空转的 `fs.watch`）：它 watch 自己的客户端包，文件一变就调 `rebuilt()`，指纹和 URL 一起换新，打开的页面会拿到新代码。**它自己要先生效一次，靠的是重启应用**——改完之后重启一次 DSH，之后改 `src/client.js` 就不必再重启了。如果没生效，日志里会有：
 
 ```
 [dsh-multi-root] client hot reload is watching C:\…\src\client.js
