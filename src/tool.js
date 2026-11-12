@@ -14,7 +14,7 @@ import { readFile, stat } from 'node:fs/promises'
 import { dirname, join, sep } from 'node:path'
 import { sessionDirectory } from './context.js'
 import { canonicalKey, dshHome, describeError, isAbsolutePath } from './util.js'
-import { findRootIndex, moveRoot, normaliseAliasId, normalizeRoot, planAttach, sanitizeRoots } from './roots.js'
+import { findRootIndex, MAX_COMMAND_LENGTH, moveRoot, normaliseAliasId, normalizeRoot, planAttach, sanitizeRoots } from './roots.js'
 import { renderRootsTable, TOOL_NAME } from './prompt.js'
 
 export { TOOL_NAME }
@@ -92,7 +92,7 @@ export function createRootsTool({ ctx, store, snapshot, configOf, logger }) {
       properties: {
         action: {
           type: 'string',
-          enum: ['list', 'attach', 'detach', 'import', 'rename', 'mode', 'skills', 'namespace', 'move', 'reveal'],
+          enum: ['list', 'attach', 'detach', 'import', 'rename', 'mode', 'skills', 'namespace', 'move', 'reveal', 'build'],
           description: 'What to do.',
         },
         paths: {
@@ -141,6 +141,16 @@ export function createRootsTool({ ctx, store, snapshot, configOf, logger }) {
           type: 'string',
           description: 'For action "namespace": the id that prefixes this root\'s skills '
             + '(`aliasId:skill-name`). Defaults to the alias when the root is attached.',
+        },
+        build: {
+          type: 'string',
+          description: 'For action "build": replace the detected build command of one root. '
+            + 'An empty string goes back to detection.',
+        },
+        test: {
+          type: 'string',
+          description: 'For action "build": replace the detected test command of one root. '
+            + 'An empty string goes back to detection.',
         },
       },
       required: ['action'],
@@ -192,6 +202,7 @@ export function createRootsTool({ ctx, store, snapshot, configOf, logger }) {
     if (action === 'namespace') return setNamespace(args, workspacePath)
     if (action === 'move') return move(args, workspacePath)
     if (action === 'reveal') return reveal(args, workspacePath)
+    if (action === 'build') return setCommands(args, workspacePath)
     if (action === 'import') return importLegacy(workspacePath)
 
     return `Unknown action "${action}". Use one of: list, attach, detach, rename, mode, skills, namespace, move, reveal, import.`
@@ -353,6 +364,37 @@ export function createRootsTool({ ctx, store, snapshot, configOf, logger }) {
         ok: true,
         roots: roots.map((entry) => (entry.id === root.id ? { ...entry, alias: raw } : entry)),
         note: `Renamed ${root.alias} to ${raw}.`,
+      }
+    })
+  }
+
+  /**
+   * Replace the build and/or test command of one root.
+   *
+   * Both fields accept an empty string, which clears the override and lets the
+   * detected command speak again. Omitting a field leaves it untouched.
+   *
+   * @param {Record<string, unknown>} args - tool arguments.
+   * @param {string} workspacePath - the workspace directory.
+   * @returns {Promise<string>} a summary.
+   */
+  async function setCommands(args, workspacePath) {
+    if (args?.build === undefined && args?.test === undefined) {
+      return 'action "build" needs `build` and/or `test`. Pass an empty string to go back to detection.'
+    }
+    const wanted = {}
+    if (args.build !== undefined) wanted.build = String(args.build).trim().slice(0, MAX_COMMAND_LENGTH)
+    if (args.test !== undefined) wanted.test = String(args.test).trim().slice(0, MAX_COMMAND_LENGTH)
+    return mutate('build', args, workspacePath, (root, roots) => {
+      const next = { ...root }
+      for (const [key, value] of Object.entries(wanted)) {
+        if (value === '') delete next[key]
+        else next[key] = value
+      }
+      return {
+        ok: true,
+        roots: roots.map((entry) => (entry.id === root.id ? next : entry)),
+        note: `Commands updated for ${root.alias}.`,
       }
     })
   }

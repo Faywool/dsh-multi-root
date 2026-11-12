@@ -41,15 +41,16 @@ export function sectionWorkspacePath(context) {
  * @param {object} input - what to render.
  * @param {string} input.workspacePath - the workspace the table belongs to.
  * @param {readonly { alias: string, path: string, mode: string }[]} input.roots - attached roots.
- * @param {(path: string) => { branch: string, dirty: boolean } | undefined} [input.gitStatus]
+ * @param {(path: string) => { branch: string, dirty: boolean, ahead?: number, behind?: number } | undefined} [input.gitStatus]
  *   - a synchronous status lookup; omitted when git reporting is off.
+ * @param {readonly string[]} [input.commands] - detected build/test lines, one per root.
  * @param {(path: string) => string | undefined} [input.notes]
  *   - a synchronous lookup of a root's own AGENTS.md text.
  * @param {number} [input.maxChars] - character budget for the whole table.
  * @param {string} [input.heading] - title line, so prompt and tool output can differ.
  * @returns {string} the table, or an empty string when there is nothing to say.
  */
-export function renderRootsTable({ workspacePath, roots, gitStatus, notes, maxChars = 4000, heading }) {
+export function renderRootsTable({ workspacePath, roots, gitStatus, commands, notes, maxChars = 4000, heading }) {
   if (!Array.isArray(roots) || roots.length === 0) return ''
   const title = heading ?? 'Additional workspace roots (attached with dsh-multi-root)'
   const preamble = [title, '']
@@ -65,7 +66,12 @@ export function renderRootsTable({ workspacePath, roots, gitStatus, notes, maxCh
     const row = [root.alias, root.path, root.mode]
     if (withGit) {
       const status = gitStatus(root.path)
-      row.push(status === undefined ? '—' : `${status.branch}${status.dirty ? '*' : ''}`)
+      if (status === undefined) {
+        row.push('—')
+      } else {
+        const divergence = `${status.ahead ? ` ↑${status.ahead}` : ''}${status.behind ? ` ↓${status.behind}` : ''}`
+        row.push(`${status.branch}${status.dirty ? '*' : ''}${divergence}`)
+      }
     }
     return row
   })
@@ -102,7 +108,14 @@ export function renderRootsTable({ workspacePath, roots, gitStatus, notes, maxCh
     ? ''
     : `\n\nRepository notes (each root's own AGENTS.md):\n\n${noteBlocks.join('\n\n')}`
 
-  const fixed = [...preamble, ...header, ...footer].join('\n').length
+  const commandList = Array.isArray(commands) ? commands.filter((line) => typeof line === 'string' && line !== '') : []
+  const commandsSection = commandList.length === 0
+    ? ''
+    : `\n\nBuild and test commands (detected for each root; override with \`/multi-root build <ref> "<command>"\`):\n\n${commandList.map((line) => `- ${line}`).join('\n')}`
+
+  const extras = commandsSection + notesSection
+
+  const fixed = [...preamble, ...header, ...footer].join('\n').length + extras.length
 
   for (let count = rows.length; count >= 0; count -= 1) {
     const included = rows.slice(0, count)
@@ -111,10 +124,10 @@ export function renderRootsTable({ workspacePath, roots, gitStatus, notes, maxCh
       ? ''
       : `\n\n… ${omitted} more root(s) omitted to stay within the prompt budget.`
     const body = included.map(emit).join('\n')
-    const roomForNotes = omitted === 0 ? notesSection : ''
-    const total = fixed + body.length + notice.length + roomForNotes.length
+    const roomForExtras = omitted === 0 ? extras : ''
+    const total = fixed - (omitted === 0 ? 0 : extras.length) + body.length + notice.length + roomForExtras.length
     if (count === 0 || total <= budget) {
-      return [...preamble, ...header, body, ...footer].join('\n') + notice + roomForNotes
+      return [...preamble, ...header, body, ...footer].join('\n') + notice + roomForExtras
     }
   }
   return ''

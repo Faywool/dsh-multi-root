@@ -12,7 +12,7 @@
 import { MAX_SEARCH_RESULTS, listDirectory, searchRoots } from './browse.js'
 import { sessionDirectory, workspaceKey } from './context.js'
 import { directoryProblem } from './tool.js'
-import { planAttach, findRootIndex, moveRoot, normaliseAliasId, sanitizeRoots } from './roots.js'
+import { planAttach, findRootIndex, moveRoot, normaliseAliasId, sanitizeRoots, normaliseCommand, MAX_COMMAND_LENGTH } from './roots.js'
 import { report } from './util.js'
 
 /** Command name without the slash. */
@@ -40,7 +40,7 @@ export function registerCommand({ ctx, commands, store, snapshot, configOf, logg
   commands.register({
     name: COMMAND_NAME,
     description: 'List or change the repositories attached to this workspace by dsh-multi-root.',
-    input: { hint: 'list | attach | detach | alias | mode | skills | namespace | move | open | find | dirs | search' },
+    input: { hint: 'list | attach | detach | alias | mode | skills | namespace | move | open | find | dirs | search | build | test' },
     handler: async (invocation) => {
       try {
         const config = configOf()
@@ -162,6 +162,38 @@ export function registerCommand({ ctx, commands, store, snapshot, configOf, logg
           return { kind: 'success', text: `Skill namespace of \`${roots[index].alias}\` is now \`${folded}\`.` }
         }
 
+        if (action === 'build' || action === 'test') {
+          const target = tokens[1]
+          if (target === undefined) {
+            const lines = roots.map((root) => {
+              const detected = snapshot.commandsOf(root.path) ?? {}
+              const command = action === 'build' ? (root.build ?? detected.build?.command) : (root.test ?? detected.test?.command)
+              const source = action === 'build' ? (root.build !== undefined ? 'override' : detected.build?.origin) : (root.test !== undefined ? 'override' : detected.test?.origin)
+              return `${root.alias}: ${command === undefined ? '(not detected)' : `\`${command}\``}${source === undefined ? '' : ` (${source})`}`
+            })
+            return { kind: 'success', text: `${action} commands:\n${lines.join('\n') || '(no attached repository)'}` }
+          }
+          const index = findRootIndex(roots, target)
+          if (index === -1) return { kind: 'error', text: `No attached repository matches \`${target}\`.` }
+          const command = tokens.slice(2).join(' ').trim()
+          const previous = action === 'build' ? roots[index].build : roots[index].test
+          const next = normaliseCommand(command, previous)
+          if (next !== undefined && next.length > MAX_COMMAND_LENGTH) {
+            return { kind: 'error', text: `The command is longer than ${MAX_COMMAND_LENGTH} characters.` }
+          }
+          const updated = { ...roots[index], [action]: next }
+          if (next === undefined) delete updated[action]
+          roots[index] = updated
+          await store.write(workspace, roots)
+          await snapshot.refresh()
+          return {
+            kind: 'success',
+            text: next === undefined
+              ? `Cleared the ${action} override of \`${roots[index].alias}\`; detection applies again.`
+              : `${action} command of \`${roots[index].alias}\` is now \`${next}\`.`,
+          }
+        }
+
         if (action === 'search') {
           const [state] = tokens.slice(1)
           if (state !== undefined && state !== 'on' && state !== 'off') {
@@ -231,7 +263,7 @@ export function registerCommand({ ctx, commands, store, snapshot, configOf, logg
           kind: 'error',
           text: `Unknown subcommand \`${action}\`. Use: list | attach <path> | detach <ref> | alias <ref> <name> | `
             + 'mode <ref> readwrite|readonly | skills <ref> [on|off] | namespace <ref> <alias-id> | move <ref> up|down|index | open <ref> | '
-            + 'find <text> | dirs <alias> [subpath]',
+            + 'build|test <ref> "<command>" | search [on|off] | find <text> | dirs <alias> [subpath]',
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)

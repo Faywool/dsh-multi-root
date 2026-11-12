@@ -253,6 +253,13 @@ async function buildState(deps, workspace, sessionId) {
     if (workspace !== undefined && canonicalKey(workspace) !== item.key) continue
     const roots = item.roots.map((root) => {
       const status = deps.snapshot.gitStatus(root.path)
+      const detected = typeof deps.snapshot.commandsOf === 'function' ? deps.snapshot.commandsOf(root.path) : undefined
+      const build = typeof root.build === 'string' && root.build !== ''
+        ? root.build
+        : detected?.build?.command
+      const test = typeof root.test === 'string' && root.test !== ''
+        ? root.test
+        : detected?.test?.command
       return {
         id: root.id,
         alias: root.alias,
@@ -261,6 +268,9 @@ async function buildState(deps, workspace, sessionId) {
         mode: root.mode,
         skillsEnabled: root.skillsEnabled === true,
         addedAt: root.addedAt,
+        ...(typeof build === 'string' && build !== '' ? { build } : {}),
+        ...(typeof test === 'string' && test !== '' ? { test } : {}),
+        buildOverridden: typeof root.build === 'string' && root.build !== '',
         git: status === undefined ? null : { branch: status.branch, dirty: status.dirty },
       }
     })
@@ -419,6 +429,28 @@ async function mutate(deps, body) {
     )
     if (clash) return { ok: false, error: `another root already uses the namespace "${folded}"` }
     existing[index] = { ...existing[index], aliasId: folded }
+    await deps.store.write(workspace, existing)
+    await deps.snapshot.refresh()
+    return buildState(deps, workspace)
+  }
+
+  if (action === 'build') {
+    const selector = typeof body.id === 'string' && body.id !== ''
+      ? body.id
+      : typeof body.path === 'string' ? body.path : ''
+    const index = findRootIndex(existing, selector)
+    if (index === -1) return { ok: false, error: 'no attached root matches that' }
+    if (body.build === undefined && body.test === undefined) {
+      return { ok: false, error: 'build needs a build and/or test command (an empty string clears it)' }
+    }
+    const next = { ...existing[index] }
+    for (const key of ['build', 'test']) {
+      if (body[key] === undefined) continue
+      const value = String(body[key]).trim().slice(0, 300)
+      if (value === '') delete next[key]
+      else next[key] = value
+    }
+    existing[index] = next
     await deps.store.write(workspace, existing)
     await deps.snapshot.refresh()
     return buildState(deps, workspace)

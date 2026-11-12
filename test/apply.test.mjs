@@ -58,7 +58,7 @@ test('the plugin declares no hard dependencies', () => {
   assert.deepEqual(inject, [])
 })
 
-test('apply registers one section, two tools and one settings form', () => {
+test('apply registers one section, four tools and one settings form', () => {
   const { ctx, registered } = fakeContext()
   apply(ctx, { enabled: true })
 
@@ -67,10 +67,10 @@ test('apply registers one section, two tools and one settings form', () => {
   assert.equal(registered.sections[0].name, 'dsh-multi-root:roots')
   assert.equal(registered.sections[0].order, 501)
   assert.equal(typeof registered.sections[0].text, 'function')
-  assert.equal(registered.tools.length, 3)
+  assert.equal(registered.tools.length, 4)
   assert.deepEqual(
     registered.tools.map((tool) => tool.name).sort(),
-    ['workspace_find', 'workspace_grep', 'workspace_roots'],
+    ['workspace_find', 'workspace_git', 'workspace_grep', 'workspace_roots'],
   )
 })
 
@@ -97,7 +97,7 @@ test('a throwing registration is contained and the rest still registers', () => 
     },
   })
   assert.doesNotThrow(() => apply(ctx, { enabled: true }))
-  assert.equal(registered.tools.length, 3, 'the tools still registered')
+  assert.equal(registered.tools.length, 4, 'the tools still registered')
   assert.equal(registered.sections.length, 1, 'the section still registered')
   assert.match(warnings.join('\n'), /settings form unavailable/)
 })

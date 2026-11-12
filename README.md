@@ -108,6 +108,43 @@ workspace_grep(pattern="value\\s*=\\s*4\\d", regex=true, glob="*.ts")
 
 不做索引、不做语义搜索，也不替代 DSH 自带的 grep——它只是把"跨六个仓库各跑一次 grep 再人工合并"变成一次调用。
 
+### 每个仓库怎么构建、怎么测
+
+根表里会带一段「Build and test commands」，每个根一行，例如：
+
+```
+PSREF_Backend: build: `dotnet build PSREF.Backend.API/PSREF.Backend.API.sln` · test: `dotnet test ...`
+PSREF_Exoteric_API: build: `pnpm -C SourceCode/react run build`
+```
+
+- 自动识别，扫描深度 2 层、跳过 `node_modules` / `bin` / `obj` / `dist` 等：最浅的 `.sln` → `dotnet build <sln>`（有 `package.json` 的 `test` 脚本就用它，否则 `dotnet test <sln>`）；否则有 `scripts.build` 的 `package.json` → `pnpm -C <dir> run build` / `yarn --cwd` / `npm --prefix`（按 lockfile 判断包管理器）；再次是单个 `.csproj`
+- 只写进提示词和面板，**从不替你执行**——跑不跑、怎么跑由模型或你自己决定
+- 猜错了就覆盖：弹窗「⋯」→「构建命令」/「测试命令」，或 `/multi-root build <ref> "<command>"`。清空输入框即回到自动检测
+- 根表里同时带上 git 的 `ahead/behind`（`main*↑2↓1` 这种），不用为了知道"本地领先几个提交"再跑一次 `git status`
+
+### 跨仓库看 git
+
+`workspace_git` 一次给出所有根的状态，省掉"六个仓库各跑一次 git"：
+
+```
+workspace_git(action="status")            # 每个根：分支、脏、ahead/behind、改动文件、最后一次提交
+workspace_git(action="diff", alias="api") # 未暂存 + 已暂存的 --stat
+workspace_git(action="log", limit=3)
+```
+
+只读工具：不 pull、不 commit、不改索引。
+
+### 只读根是真的只读
+
+把某个根设成 `readonly` 之后，写操作在**执行期**被拒绝，不只是提示词里写一句：
+
+```
+"…\legacy\src\a.cs" is inside the readonly root "legacy".
+Run /multi-root mode legacy readwrite, or write somewhere else.
+```
+
+拦截覆盖 `write` / `edit` / `apply_patch` / `delete` / `move` 这类工具，只对能明确解析出的绝对路径生效——解析不出来就放行（fail open），免得误伤。这是执行期守卫，不是沙箱权限：真正的沙箱边界仍由 DSH 的 `permission.defaultPreset` 决定。
+
 ### 侧栏入口、弹窗与设置页
 
 入口只有一个：**左栏左下角**、设置按钮那一行（上游插件放 Folders 的位置）。侧栏窄成图标栏时是一个图标，展开时是「图标 + 多仓库工作区」。点它打开一个居中弹窗——不是整页主面板，左栏顶部也不会多出菜单项：
@@ -143,9 +180,10 @@ workspace_grep(pattern="value\\s*=\\s*4\\d", regex=true, glob="*.ts")
 /multi-root find Settings
 /multi-root dirs backend src
 /multi-root search on
+/multi-root build backend "dotnet build API/API.sln"
 ```
 
-`detach` / `alias` / `mode` / `skills` / `namespace` / `move` / `open` 都接受 id、别名或绝对路径。
+`detach` / `alias` / `mode` / `skills` / `namespace` / `move` / `open` / `build` / `test` 都接受 id、别名或绝对路径。
 
 ### 每个仓库的笔记
 

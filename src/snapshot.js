@@ -12,6 +12,7 @@
 import { report, describeError } from './util.js'
 import { workspaceKey } from './context.js'
 import { readRootAgentsFile } from './browse.js'
+import { detectCommands } from './build.js'
 
 /** How often the mirror re-reads the store. */
 const REFRESH_INTERVAL_MS = 5000
@@ -27,6 +28,8 @@ export class RootSnapshot {
   #byWorkspace = new Map()
   /** @type {Map<string, string>} root path → its AGENTS.md (or CLAUDE.md) notes */
   #agentsByRoot = new Map()
+  /** @type {Map<string, object>} root path → detected build/test commands */
+  #commandsByRoot = new Map()
   /** @type {boolean} */
   #ready = false
 
@@ -65,6 +68,7 @@ export class RootSnapshot {
         await this.#git.warm(directories)
       }
       await this.#readAgentsFiles(entries.flatMap((entry) => entry.roots.map((root) => root.path)))
+      await this.#detectCommands(entries.flatMap((entry) => entry.roots.map((root) => root.path)))
     } catch (error) {
       report(this.#logger, 'info', `could not refresh attached roots: ${describeError(error)}`)
     }
@@ -101,6 +105,55 @@ export class RootSnapshot {
    */
   agentsOf(directory) {
     return this.#agentsByRoot.get(directory)
+  }
+
+  /**
+   * Sniff each new root's build system, once.
+   *
+   * Detection reads a bounded slice of the tree, so it runs only for paths the
+   * mirror has not seen yet: a settled workspace costs nothing after the first
+   * refresh, and a newly attached root costs one shallow scan.
+   *
+   * @param {string[]} directories - every attached root path.
+   * @returns {Promise<void>}
+   */
+  async #detectCommands(directories) {
+    for (const directory of directories) {
+      if (this.#commandsByRoot.has(directory)) continue
+      try {
+        this.#commandsByRoot.set(directory, await detectCommands(directory))
+      } catch {
+        this.#commandsByRoot.set(directory, { kind: 'none' })
+      }
+    }
+  }
+
+  /**
+   * The build/test commands detected for one root.
+   * @param {string} directory - an absolute root path.
+   * @returns {{ build?: { command: string }, test?: { command: string } } | undefined} what was sniffed.
+   */
+  commandsOf(directory) {
+    return this.#commandsByRoot.get(directory)
+  }
+
+  /**
+   * Every attached root, across all workspaces.
+   *
+   * The readonly guard needs this: when a tool names an absolute path it does
+   * not say which workspace the path belongs to, and a path inside any
+   * readonly root should be refused regardless of which session asked.
+   *
+   * @returns {{ alias: string, path: string, mode: string, workspace: string }[]} all roots.
+   */
+  allRoots() {
+    const roots = []
+    for (const entry of this.#byWorkspace.values()) {
+      for (const root of entry.roots) {
+        roots.push({ alias: root.alias, path: root.path, mode: root.mode, workspace: entry.path })
+      }
+    }
+    return roots
   }
 
   /**

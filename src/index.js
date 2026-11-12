@@ -26,6 +26,9 @@ import { GitStatusCache } from './git.js'
 import { createRootsTool } from './tool.js'
 import { createFindTool, FIND_TOOL_NAME } from './find-tool.js'
 import { createGrepTool, GREP_TOOL_NAME } from './grep-tool.js'
+import { createGitTool, GIT_TOOL_NAME } from './git-tool.js'
+import { installReadOnlyGuard } from './readonly-guard.js'
+import { commandLines } from './build.js'
 import { COMMAND_NAME, registerCommand } from './command.js'
 import { registerSkillProvider, SKILL_PROVIDER } from './skills.js'
 import { registerRoutes } from './routes.js'
@@ -180,6 +183,16 @@ function mount(ctx, configOf) {
   if (guard(ctx, 'workspace_grep tool', () => registerTool(ctx, createGrepTool({ ctx, store, snapshot, logger })))) {
     mounted.push(GREP_TOOL_NAME)
   }
+
+  if (guard(ctx, 'workspace_git tool', () => registerTool(ctx, createGitTool({ ctx, snapshot, logger })))) {
+    mounted.push(GIT_TOOL_NAME)
+  }
+
+  // Read-only roots are enforced here rather than trusted from the prompt: the
+  // prompt says what a root is, this makes the registry refuse a write into one.
+  if (guard(ctx, 'read-only guard', () => {
+    if (installReadOnlyGuard({ ctx, snapshot, logger })) mounted.push('readonly guard')
+  })) { /* scheduled */ }
 
   withService(ctx, 'commands', 'slash command', (commands) => {
     const registered = registerCommand({ ctx, commands, store, snapshot, configOf, logger })
@@ -361,6 +374,7 @@ function sectionText(configOf, snapshot, context) {
       workspacePath,
       roots,
       gitStatus: config.showGit ? (path) => snapshot.gitStatus(path) : undefined,
+      commands: commandLines(roots, (path) => snapshot.commandsOf(path)),
       notes: (path) => snapshot.agentsOf(path),
       maxChars: config.promptMaxChars,
     })

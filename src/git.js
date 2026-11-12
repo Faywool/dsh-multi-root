@@ -36,9 +36,17 @@ export function readGitStatus(directory) {
         }
         let branch = ''
         let dirty = false
+        let ahead = 0
+        let behind = 0
         for (const line of stdout.split('\n')) {
           if (line.startsWith('# branch.head ')) {
             branch = line.slice('# branch.head '.length).trim()
+          } else if (line.startsWith('# branch.ab ')) {
+            const match = /\+(\d+)\s+-(\d+)/.exec(line)
+            if (match !== null) {
+              ahead = Number.parseInt(match[1], 10)
+              behind = Number.parseInt(match[2], 10)
+            }
           } else if (line.trim() !== '' && !line.startsWith('#')) {
             dirty = true
           }
@@ -47,11 +55,161 @@ export function readGitStatus(directory) {
           resolvePromise(undefined)
           return
         }
-        resolvePromise({ branch: branch === '(detached)' ? 'detached' : branch, dirty })
+        resolvePromise({
+          branch: branch === '(detached)' ? 'detached' : branch,
+          dirty,
+          ahead,
+          behind,
+        })
       },
     )
   })
 }
+
+/**
+ * Everything the `workspace_git` tool reports about one repository.
+ *
+ * @typedef {object} RepoState
+ * @property {string} branch - the checked-out branch, or `detached`.
+ * @property {number} ahead - commits ahead of the upstream, 0 when unknown.
+ * @property {number} behind - commits behind the upstream, 0 when unknown.
+ * @property {number} changed - how many paths are modified or staged.
+ * @property {string[]} files - the first few changed paths.
+ * @property {{ hash: string, subject: string, date: string } | undefined} last
+ *   - the newest commit, when one exists.
+ */
+
+/**
+ * Read the full state of one repository: branch, divergence, changes, last commit.
+ *
+ * Two `git` calls, both read-only and bounded. A directory that is not a
+ * repository resolves to `undefined` rather than throwing, so a root that
+ * happens to be plain files still appears in the table without a git column.
+ *
+ * @param {string} directory - an absolute directory path.
+ * @returns {Promise<RepoState | undefined>} the state, or undefined when unavailable.
+ */
+export function readRepoState(directory) {
+  const status = new Promise((resolvePromise) => {
+    let stdout = ''
+    try {
+      execFile(
+        'git',
+        ['-C', directory, 'status', '--porcelain=v2', '--branch', '--untracked-files=no'],
+        { timeout: GIT_TIMEOUT_MS, windowsHide: true, maxBuffer: 1024 * 1024 },
+        (error, out) => {
+          if (error) resolvePromise(undefined)
+          else { stdout = out; resolvePromise(stdout) }
+        },
+      )
+    } catch {
+      resolvePromise(undefined)
+    }
+  })
+  const log = new Promise((resolvePromise) => {
+    try {
+      execFile(
+        'git',
+        ['-C', directory, 'log', '-1', '--format=%h%x1f%ad%x1f%s', '--date=short'],
+        { timeout: GIT_TIMEOUT_MS, windowsHide: true, maxBuffer: 64 * 1024 },
+        (error, out) => {
+          if (error) resolvePromise(undefined)
+          else resolvePromise(out.trim())
+        },
+      )
+    } catch {
+      resolvePromise(undefined)
+    }
+  })
+
+  return Promise.all([status, log]).then(([text, lastCommit]) => {
+    if (typeof text !== 'string') return undefined
+    let branch = ''
+    let ahead = 0
+    let behind = 0
+    const files = []
+    for (const line of text.split('\n')) {
+      if (line.startsWith('# branch.head ')) {
+        branch = line.slice('# branch.head '.length).trim()
+      } else if (line.startsWith('# branch.ab ')) {
+        const match = /\+(\d+)\s+-(\d+)/.exec(line)
+        if (match !== null) {
+          ahead = Number.parseInt(match[1], 10)
+          behind = Number.parseInt(match[2], 10)
+        }
+      } else if (line.trim() !== '' && !line.startsWith('#')) {
+        const parts = line.split(' ')
+        const path = parts.length >= 9 ? parts.slice(8).join(' ') : ''
+        if (path !== '') files.push(path)
+      }
+    }
+    if (branch === '') return undefined
+    let last
+    if (typeof lastCommit === 'string' && lastCommit !== '') {
+      const [hash, date, ...subject] = lastCommit.split('\u001f')
+      last = { hash, date, subject: subject.join('\u001f') }
+    }
+    return {
+      branch: branch === '(detached)' ? 'detached' : branch,
+      ahead,
+      behind,
+      changed: files.length,
+      files: files.slice(0, 8),
+      last,
+    }
+  })
+}
+
+/**
+ * The diff stats of one repository, as plain text.
+ *
+ * @param {string} directory - an absolute directory path.
+ * @param {boolean} [staged=false] - report the index instead of the working tree.
+ * @returns {Promise<string | undefined>} the `--stat` output, or undefined.
+ */
+export function readDiffStat(directory, staged = false) {
+  return runGit(directory, staged ? ['diff', '--cached', '--stat'] : ['diff', '--stat'], 4096)
+}
+
+/**
+ * The last commits of one repository.
+ *
+ * @param {string} directory - an absolute directory path.
+ * @param {number} limit - how many commits to read, 1–20.
+ * @returns {Promise<string | undefined>} one line per commit, or undefined.
+ */
+export function readLog(directory, limit) {
+  return runGit(directory, ['log', `-n${limit}`, '--format=%h %ad %s', '--date=short'], 128 * 1024)
+}
+
+/**
+ * Run one read-only git command and return its stdout.
+ *
+ * @param {string} directory - an absolute directory path.
+ * @param {readonly string[]} args - git arguments.
+ * @param {number} maxBuffer - the output cap in bytes.
+ * @returns {Promise<string | undefined>} the output, or undefined on any failure.
+ */
+function runGit(directory, args, maxBuffer) {
+  return new Promise((resolvePromise) => {
+    try {
+      execFile(
+        'git',
+        ['-C', directory, ...args],
+        { timeout: GIT_READ_TIMEOUT_MS, windowsHide: true, maxBuffer },
+        (error, stdout) => {
+          if (error) resolvePromise(undefined)
+          else resolvePromise(stdout)
+        },
+      )
+    } catch {
+      resolvePromise(undefined)
+    }
+  })
+}
+
+/** How long a read-only report command may take. */
+const GIT_READ_TIMEOUT_MS = 4000
 
 /**
  * A small time-based cache in front of {@link readGitStatus}.

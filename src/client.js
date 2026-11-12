@@ -102,6 +102,7 @@
         '.mr-line{display:flex;align-items:center;gap:8px;min-width:0}',
         '.mr-alias{font-size:14.5px;font-weight:600;letter-spacing:.01em;color:var(--dsw-alias-label-primary,#f0f0f0);white-space:nowrap}',
         '.mr-path{min-width:0;color:var(--dsw-alias-label-secondary,#8f8f8f);font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+        '.mr-command{min-width:0;color:var(--dsw-alias-label-secondary,#8f8f8f);font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.85}',
         '.mr-badge{flex:none;font-size:11px;line-height:16px;padding:0 7px;border-radius:99px;border:1px solid var(--dsw-alias-border-l1,#3a3a3a);color:var(--dsw-alias-label-secondary,#9a9a9a)}',
         '.mr-badge[data-mode="readwrite"]{color:var(--dsw-alias-state-success-primary,#7fd1a0)}',
         '.mr-badge[data-mode="readonly"]{color:var(--dsw-alias-state-warn-primary,#d9b06a)}',
@@ -576,7 +577,10 @@
         // Inline editors instead of `window.prompt`: the desktop renderer does
         // not support modal prompts, so a prompt-based edit silently did nothing.
         function startEdit(root, field) {
-          var current = field === 'alias' ? root.alias : (root.aliasId || root.alias)
+          var current
+          if (field === 'alias') current = root.alias
+          else if (field === 'namespace') current = root.aliasId || root.alias
+          else current = root[field] || ''
           setMenuFor(null)
           setError('')
           setEdit({ id: root.id, field: field, label: root.alias, value: String(current), error: '' })
@@ -585,15 +589,19 @@
         function submitEdit() {
           if (edit === null) return undefined
           var value = String(edit.value).trim()
-          if (value === '') {
+          if (value === '' && edit.field !== 'build' && edit.field !== 'test') {
             setEdit({ id: edit.id, field: edit.field, label: edit.label, value: edit.value, error: '不能为空' })
             return undefined
           }
           var body = { workspace: focusPath, id: edit.id }
-          if (edit.field === 'alias') body.action = 'alias'
-          else body.action = 'namespace'
-          if (edit.field === 'alias') body.alias = value
-          else body.aliasId = value
+          if (edit.field === 'build' || edit.field === 'test') {
+            body.action = 'build'
+            body[edit.field] = value
+          } else {
+            body.action = edit.field === 'alias' ? 'alias' : 'namespace'
+            if (edit.field === 'alias') body.alias = value
+            else body.aliasId = value
+          }
           return send(body).then(function (payload) {
             if (payload && payload.ok !== false) setEdit(null)
             else setEdit({ id: edit.id, field: edit.field, label: edit.label, value: edit.value, error: String((payload && payload.error) || '保存失败') })
@@ -675,6 +683,16 @@
                         (root.git.branch || '（无分支）') + (root.git.dirty ? ' *' : '')),
                   ),
                   h('span', { className: 'mr-path', title: root.path }, root.path),
+                  root.build === undefined && root.test === undefined
+                    ? null
+                    : h('span', {
+                      className: 'mr-command',
+                      title: (root.build !== undefined ? 'build: ' + root.build : '')
+                        + (root.test !== undefined ? '\ntest: ' + root.test : ''),
+                    },
+                    (root.build !== undefined ? 'build: ' + root.build : '')
+                      + (root.build !== undefined && root.test !== undefined ? '  ·  ' : '')
+                      + (root.test !== undefined ? 'test: ' + root.test : '')),
                 ),
                 h('div', { className: 'mr-actions' },
                   h('button', {
@@ -726,6 +744,8 @@
                 },
                   h('div', { className: 'mr-menu-item', role: 'menuitem', tabIndex: busy ? -1 : 0, 'aria-disabled': busy ? 'true' : 'false', onClick: function () { if (!busy) { setMenuFor(null); startEdit(root, 'alias') } }, onKeyDown: keyActivate(busy, function () { setMenuFor(null); startEdit(root, 'alias') }) }, '重命名'),
                   h('div', { className: 'mr-menu-item', role: 'menuitem', tabIndex: busy ? -1 : 0, 'aria-disabled': busy ? 'true' : 'false', onClick: function () { if (!busy) { setMenuFor(null); startEdit(root, 'namespace') } }, onKeyDown: keyActivate(busy, function () { setMenuFor(null); startEdit(root, 'namespace') }) }, 'Skill Namespace'),
+                  h('div', { className: 'mr-menu-item', role: 'menuitem', tabIndex: busy ? -1 : 0, 'aria-disabled': busy ? 'true' : 'false', onClick: function () { if (!busy) { setMenuFor(null); startEdit(root, 'build') } }, onKeyDown: keyActivate(busy, function () { setMenuFor(null); startEdit(root, 'build') }) }, '构建命令'),
+                  h('div', { className: 'mr-menu-item', role: 'menuitem', tabIndex: busy ? -1 : 0, 'aria-disabled': busy ? 'true' : 'false', onClick: function () { if (!busy) { setMenuFor(null); startEdit(root, 'test') } }, onKeyDown: keyActivate(busy, function () { setMenuFor(null); startEdit(root, 'test') }) }, '测试命令'),
                   h('div', { className: 'mr-menu-item', role: 'menuitem', tabIndex: busy ? -1 : 0, 'aria-disabled': busy ? 'true' : 'false', onClick: function () { if (!busy) { setMenuFor(null); onCopyPath(root) } }, onKeyDown: keyActivate(busy, function () { setMenuFor(null); onCopyPath(root) }) }, '复制路径'),
                   h('div', { className: 'mr-menu-item', role: 'menuitem', tabIndex: busy ? -1 : 0, 'aria-disabled': busy ? 'true' : 'false', onClick: function () { if (!busy) { setMenuFor(null); onSkills(root) } }, onKeyDown: keyActivate(busy, function () { setMenuFor(null); onSkills(root) }) }, root.skillsEnabled === true ? '停用技能' : '启用技能'),
                   h('div', { className: 'mr-menu-item', role: 'menuitem', tabIndex: busy ? -1 : 0, 'aria-disabled': busy ? 'true' : 'false', onClick: function () { if (!busy) { setMenuFor(null); onReveal(root) } }, onKeyDown: keyActivate(busy, function () { setMenuFor(null); onReveal(root) }) }, '在文件管理器中打开'),
@@ -770,7 +790,9 @@
             },
               h('div', { className: 'mr-sheet', role: 'dialog', 'aria-modal': 'true', style: sheetSkin },
                 h('div', { className: 'mr-sheet-title' },
-                  edit.field === 'alias' ? '重命名 ' + edit.label : 'Skill Namespace：' + edit.label),
+                  edit.field === 'alias' ? '重命名 ' + edit.label
+                    : edit.field === 'namespace' ? 'Skill Namespace：' + edit.label
+                      : (edit.field === 'build' ? '构建命令：' : '测试命令：') + edit.label),
                 h('input', {
                   className: 'mr-input',
                   style: fieldSkin,
@@ -800,7 +822,9 @@
                 h('div', { className: 'mr-sheet-hint' },
                   edit.field === 'alias'
                     ? '显示名，可以含大写字母和空格。技能命名空间不会跟着变。'
-                    : '技能名的前缀，只能用小写字母、数字、点、下划线和短横线。'),
+                    : edit.field === 'namespace'
+                      ? '技能名的前缀，只能用小写字母、数字、点、下划线和短横线。'
+                      : '自动检测出来的命令会显示成默认值。清空这一格即回到自动检测。'),
                 edit.error === '' ? null : h('div', { className: 'mr-edit-error' }, edit.error),
                 h('div', { className: 'mr-sheet-actions' },
                   h('button', {

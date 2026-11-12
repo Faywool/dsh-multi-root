@@ -134,6 +134,9 @@ text: (context) => sectionText(configOf, snapshot, context)
 | 文件浏览 | ✅（文件树 factory） | ✅（面板内只读浏览 + 文本预览） |
 | 跨根查找（替代 `@`） | ✅（替换 `ctx.fs`） | ✅ `workspace_find` |
 | 跨根搜内容（跨仓 grep） | ❌ | ✅ `workspace_grep`（可按工作区关闭） |
+| 每根构建/测试命令识别 | ✅ | ✅（深度 2 层扫 `.sln` / `package.json` / `.csproj`，可覆盖，只写提示词不执行） |
+| 跨根 git 状态 / diff / log | ✅ | ✅ `workspace_git`（只读） |
+| `readonly` 真的拒绝写入 | ✅ | ✅（`ctx.tools.guard` 执行期拦截，fail open） |
 | 替换 `ctx.fs` / `ctx.sandbox` | ✅ | ❌（故意的） |
 | 版本门禁 throw | ✅ | ❌（故意的） |
 | 稳定记录 id（改名/换序/重挂不变） | ✅ | ✅ |
@@ -186,7 +189,7 @@ DSH 0.2.2 不要求客户端插件有构建产物：`package.json` 里 `exports[
 
 client 侧的 fail-soft 与 host 侧同构：`ctx.get('slots')` 包在 try 里、每个槽位单独 try/catch、`pickDirectory()` 缺失时提示手输路径。任何一个槽位注册失败，只丢那个入口。
 
-## 8. 五条用真机换来的教训
+## 8. 八条用真机换来的教训
 
 **① 工具必须走 scoped inject。** `service(ctx, 'tools').register(def)` 看起来完全成功：返回 disposer、重复注册还会被拒（`tool "workspace_roots" is already registered`），但注册落在插件自己的 layer 里，`tools.view(undefined).knownNames` 里没有它，任何 agent 都解析不到。正确写法是 `ctx.inject(['tools'], scoped => scoped.tools.register(def))`——这也是 windows-mcp 等第三方插件的写法。诊断时不要只看 `register()` 有没有抛，要看"下一步的 agent 工具列表里有没有它"。
 
@@ -202,12 +205,14 @@ client 侧的 fail-soft 与 host 侧同构：`ctx.get('slots')` 包在 try 里�
 
 **⑦ 预算要按"真正会读的文件"计数，否则一个 glob 就能把它烧光。** 第一版 `grepRoots` 对每个 dirent 都 `filesVisited += 1`，包括目录和 glob 不会选中的文件；实测 `glob="*.cs"` 在六仓工作区里 301 毫秒就撞上 20000 的 visited 上限，`filesScanned` 还是 0——结果看起来像"没有匹配"，其实是"一个文件都没读"。现在只有通过目录过滤和 glob 的普通文件才计数，二进制扩展名（`.png`/`.dll`/`.zip` 等）在读之前就跳过，实测六仓全量扫描从"20000 上限 + 0 命中"变成 42542 个文件、8 秒扫完。**教训：任何"给用户看的预算数字"都要和"实际工作量"同口径，否则报告本身就是误导。**
 
+**⑧ 只读不是提示词，是执行期的一条守卫。** `mode: readonly` 原先只写进提示词，模型照写不误。`ctx.tools.guard(fn)` 是宿主提供的执行期钩子：`fn(execution)` 返回字符串即拒绝、返回 `undefined` 即放行。坑与工具注册同源——守卫必须挂在 **scoped** `ctx.inject(['tools'], …)` 上，直接 `ctx.get('tools').guard(…)` 会落在插件自己的 layer，agent 继承不到。判定只认能明确解析出的**绝对路径**（递归扫参数里的字符串，最多 24 条），解析不出来就放行（fail open）：宁可漏拦，也不要因为一次误判把正常写入拦掉——"不拖垮开发"比"完全阻断"优先。
+
 ## 9. 验证手段
 
-- `node --test`：**105 个用例**（roots 8 / store 6 / prompt 8 / tool 18 / apply 9 / routes 18 / client 6 / require 2 / id 9 / dev-reload 4 / grep 17），覆盖改名去重、id 稳定性、预算裁剪、损坏恢复、并发写、注册失败隔离、路由鉴权与路径逃逸、client 半边四个槽位的注册与渲染、客户端包热重载的降级路径，以及内容搜索的 glob 语义、二进制/超大文件跳过、命中上限、按工作区开关。不需要装 DSH 就能跑。
+- `node --test`：**129 个用例**（roots 8 / store 6 / prompt 8 / tool 18 / apply 9 / routes 18 / client 6 / require 2 / id 9 / dev-reload 4 / grep 17 / build 7 / git 8 / manifest 3 / readonly-guard 9），覆盖改名去重、id 稳定性、预算裁剪、损坏恢复、并发写、注册失败隔离、路由鉴权与路径逃逸、client 半边四个槽位的注册与渲染、客户端包热重载的降级路径、内容搜索的 glob 语义与预算、构建命令识别、跨根 git 读取、只读守卫的放行与拒绝。不需要装 DSH 就能跑。
 - probe profile：复制 profile、junction 出 node_modules、只加本插件，起真实实例确认 `apply() reached` 与 `mounted …`，且宿主正常监听端口。
 - `--dump-config`：确认补丁行被 loader 接受，且组合树里只有我们这一行新增。
-- 真机：`GET /dsh-multi-root/state` 返回 200 与 6 个根；`cordis_inspect_query` 的 `Slots/listSubTree` 里 `sidebar.footer.action` / `shell.overlay` / `settings.section` 的 occupants 都有本插件且 `active: true`；`workspace_roots` / `workspace_find` / `workspace_grep` 出现在模型工具列表里并能真实 attach → list → find → grep → detach。
+- 真机：`GET /dsh-multi-root/state` 返回 200 与 6 个根；`cordis_inspect_query` 的 `Slots/listSubTree` 里 `sidebar.footer.action` / `shell.overlay` / `settings.section` 的 occupants 都有本插件且 `active: true`；`workspace_roots` / `workspace_find` / `workspace_grep` / `workspace_git` 出现在模型工具列表里并能真实调用。
 - 内容搜索的实测基线（`D:\Samsundot\Product---PSREF` 下六个根，42,542 个非跳过文件）：全量字面量查询约 8 秒扫完、无截断；`glob="*.cs"` 约 0.2 秒、命中 114 处。
 
 ## 10. 还没做的

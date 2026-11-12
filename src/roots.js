@@ -15,6 +15,9 @@ export const MODES = Object.freeze(['readwrite', 'readonly'])
 /** Longest alias accepted, in characters. */
 export const MAX_ALIAS_LENGTH = 32
 
+/** Longest command override that is stored verbatim, in characters. */
+export const MAX_COMMAND_LENGTH = 300
+
 /**
  * Mint a stable identifier for one attached root.
  *
@@ -64,6 +67,26 @@ export function normaliseAliasId(value, fallback) {
     .replace(/^[-._]+|[-._]+$/g, '')
     .slice(0, MAX_ALIAS_LENGTH)
   return folded === '' ? 'root' : folded
+}
+
+/**
+ * Normalise a user supplied build or test command.
+ *
+ * `undefined` keeps whatever was stored before, so callers can update only one
+ * of the two fields. An empty (or whitespace only) string clears the override,
+ * which puts detection back in charge — that is the only way to say "forget
+ * my custom command" without a second flag.
+ *
+ * @param {unknown} value - the incoming value.
+ * @param {string|undefined} previous - the currently stored override.
+ * @returns {string|undefined} the value to store, or undefined to clear it.
+ */
+export function normaliseCommand(value, previous) {
+  if (value === undefined) return previous
+  if (typeof value !== 'string') return previous
+  const trimmed = value.trim()
+  if (trimmed === '') return undefined
+  return trimmed.slice(0, MAX_COMMAND_LENGTH)
 }
 
 /**
@@ -148,6 +171,8 @@ export function normalizeRoot(input, taken = [], identity = {}) {
   const skillsEnabled = input?.skillsEnabled === undefined
     ? normaliseSkills(identity.skillsEnabled)
     : normaliseSkills(input.skillsEnabled)
+  const build = normaliseCommand(input?.build, identity.build)
+  const test = normaliseCommand(input?.test, identity.test)
   return {
     ok: true,
     root: {
@@ -157,6 +182,8 @@ export function normalizeRoot(input, taken = [], identity = {}) {
       path,
       mode,
       skillsEnabled,
+      ...(build === undefined ? {} : { build }),
+      ...(test === undefined ? {} : { test }),
       addedAt: typeof identity.addedAt === 'string' && identity.addedAt !== ''
         ? identity.addedAt
         : new Date().toISOString(),
@@ -217,6 +244,8 @@ export function planAttach(existing, incoming, maxRoots) {
         path: request.path,
         ...(request.aliasId === undefined ? {} : { aliasId: request.aliasId }),
         ...(request.skillsEnabled === undefined ? {} : { skillsEnabled: request.skillsEnabled }),
+        ...(request.build === undefined ? {} : { build: request.build }),
+        ...(request.test === undefined ? {} : { test: request.test }),
       }
       replaced.push(previousAlias === request.alias ? request.alias : `${previousAlias}→${request.alias}`)
       continue
@@ -288,6 +317,8 @@ export function sanitizeRoots(value) {
     let id = typeof entry?.id === 'string' && entry.id.trim() !== '' ? entry.id.trim() : ''
     if (id === '' || ids.has(id)) id = newId()
     ids.add(id)
+    const build = normaliseCommand(entry?.build, undefined)
+    const test = normaliseCommand(entry?.test, undefined)
     roots.push({
       id,
       alias,
@@ -295,6 +326,8 @@ export function sanitizeRoots(value) {
       path: path.trim(),
       mode,
       skillsEnabled: normaliseSkills(entry?.skillsEnabled),
+      ...(build === undefined ? {} : { build }),
+      ...(test === undefined ? {} : { test }),
       addedAt: typeof entry?.addedAt === 'string' && entry.addedAt.trim() !== ''
         ? entry.addedAt
         : new Date().toISOString(),

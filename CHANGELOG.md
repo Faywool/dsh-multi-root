@@ -18,6 +18,18 @@ All notable changes to this plugin are recorded here. The format follows
   `action: "search"`). Off means the tool answers one sentence and reads nothing.
 - A glob without a path separator (`*.cs`) matches the file name at any depth;
   a glob with one (`src/**`) matches the relative path.
+- Build and test commands per root: `src/build.js` scans two levels down for the
+  shallowest `.sln`, a `package.json` with a `build` script (package manager from
+  the lockfile), or a single `.csproj`, and publishes the result in the prompt
+  section and the panel. `/multi-root build|test <ref> "<command>"` and
+  `workspace_roots action: "build"` override it; an empty value goes back to
+  detection.
+- `workspace_git` tool: `status`, `diff` and `log` across every attached root in
+  one call, including ahead/behind and the last commit. Read only.
+- The root table's git column now shows `↑ahead` / `↓behind` next to the branch.
+- `mode: "readonly"` is enforced at execution time through `ctx.tools.guard` for
+  write-like tools. Paths that cannot be resolved to an absolute path are let
+  through on purpose (fail open).
 
 ### Fixed
 
