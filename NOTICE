@@ -1,0 +1,19 @@
+dsh-multi-root
+Copyright (c) 2026 dsh-multi-root contributors
+Licensed under the MIT License (see LICENSE).
+
+This project is an independent rewrite inspired by the goals of
+  @dsh-electron/dsh-plugin-multi-root-workspace
+  https://github.com/cherrchen/dsh-plugin-multi-root-workspace
+Copyright (c) the dsh-plugin-multi-root-workspace authors
+Licensed under the MIT License.
+
+No source code from that project is copied into this repository. Its published
+behaviour was studied, and the capability set was reimplemented against the
+documented DSH service contracts with a deliberately different architecture:
+dsh-multi-root adds a prompt section and a tool, and never replaces the
+`fs` or `sandbox` providers, never disables an upstream loader row, and never
+throws from `apply()`.
+
+The names `DeepSeek Harness`, `DSH` and `@deepseek-ai/*` refer to software by
+DeepSeek. This project is not affiliated with or endorsed by DeepSeek.

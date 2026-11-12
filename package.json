@@ -1,0 +1,57 @@
+{
+  "name": "dsh-multi-root",
+  "version": "0.1.0",
+  "description": "Attach extra repositories to one DSH workspace: a prompt section, a workspace_roots tool, a cross-root file finder, a sidebar dialog and a settings section. Additive only - it never replaces ctx.fs or ctx.sandbox, so a broken install cannot take DSH down.",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./client": "./src/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "scripts",
+    "assets",
+    "cordis.patch.yml",
+    "screenshots.json",
+    "docs",
+    "CHANGELOG.md",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
+    }
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "scripts": {
+    "test": "node --test",
+    "check": "node scripts/check.mjs"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "plugin",
+    "workspace",
+    "multi-root",
+    "monorepo"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Faywool/dsh-multi-root.git"
+  },
+  "homepage": "https://github.com/Faywool/dsh-multi-root#readme",
+  "bugs": {
+    "url": "https://github.com/Faywool/dsh-multi-root/issues"
+  },
+  "license": "MIT"
+}

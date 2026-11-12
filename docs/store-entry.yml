@@ -1,0 +1,30 @@
+# Draft entry for the DSH plugin list
+
+The store (dsh-market) reads the curated catalog from
+[`awesome-dsh-plugin/awesome-dsh-plugin`](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin),
+so being listed means one YAML file in that repository.
+
+To submit: fork that repository, copy the block below into
+`data/plugins/Faywool__dsh-multi-root.yml`, and open a pull request that adds
+only that file (at most 3 entries per PR).
+
+```yaml
+url: https://github.com/Faywool/dsh-multi-root
+name: Faywool/dsh-multi-root
+category: ui
+description:
+  en: Mount extra repositories on one DSH workspace through a sidebar dialog and two model tools, workspace_roots and workspace_find, with per-root read-only mode, skill namespaces and git status. The manifest only adds a row, so a broken plugin cannot take DSH down.
+  zh: 通过侧栏弹窗和两个模型工具 workspace_roots、workspace_find，把一个 DSH 工作区挂载到多个仓库，支持每根只读/可写、技能命名空间与 git 状态；manifest 只增加一行，插件坏掉不会拖垮 DSH。
+```
+
+Notes for the submission:
+
+- `url` must match the repository exactly; do not add a trailing slash.
+- `description.en` is the only required description, must be a single sentence
+  ending with a period, and is checked against the source code.
+- `category: ui` matches the neighbouring workspace plugins; a near miss is
+  corrected by a maintainer rather than rejected.
+- `icon:` is optional. Without it the storefront falls back to the owner's
+  avatar. Only GitHub-hosted raster images are accepted.
+- `screenshots.json` in this repository already declares one screenshot, so the
+  detail page picks it up without any extra field in the entry.

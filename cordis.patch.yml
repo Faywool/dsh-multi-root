@@ -1,0 +1,35 @@
+# dsh-multi-root: attach extra repositories to a workspace.
+#
+# This bundle is ADDITIVE ONLY. It inserts exactly one row and disables nothing:
+# the upstream `fs-sandbox`, `sandbox`, `system-prompt` and `tools` rows keep
+# running untouched. There is no provider replacement anywhere in this file, so
+# a failed or missing optional service costs only the feature that needs it —
+# never `ctx.fs`, `ctx.sandbox`, the file tools, the terminal, or the session.
+#
+# The row declares no `inject` list either (see src/index.js): every service is
+# read through `ctx.get(...)` with an undefined check. That is what makes the
+# row unmountable-but-harmless instead of "pending forever", which is the
+# failure mode that took whole compositions down in the plugin this one replaces.
+#
+# To remove the plugin without editing any code:
+#   1. turn it off in Settings (the `enabled` switch below is live), or
+#   2. delete this one row from the profile patch, or
+#   3. delete the bundle from `dsh.profile.bundles`.
+- insert:
+    - id: dsh-multi-root
+      name: dsh-multi-root
+      config:
+        # Master switch. Live-editable from Settings; `false` unmounts every
+        # contribution while leaving the row and its stored roots in place.
+        enabled: true
+        # Cap on attached roots per workspace. Stored roots above the cap keep
+        # working; only new attachments are refused.
+        maxRoots: 16
+        # Whether the attached-root table is added to the model-facing prompt.
+        injectPrompt: true
+        # Byte cap for that table, so a pathological root list cannot crowd out
+        # the rest of the prompt.
+        promptMaxChars: 4000
+        # Read each root's git branch and dirty flag for the table. Costs one
+        # short `git` invocation per root, cached in-process.
+        showGit: true
