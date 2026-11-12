@@ -86,7 +86,8 @@
         '.mr-sub{margin:0;color:var(--dsw-alias-label-secondary,#9a9a9a);font-size:12px;line-height:1.6}',
         '.mr-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}',
         '.mr-ws{display:flex;align-items:center;gap:8px;min-width:0}',
-        '.mr-select{min-width:260px;max-width:100%;height:28px;padding:0 8px;border-radius:6px;border:1px solid var(--dsw-alias-border-l1,#3a3a3a);background:var(--dsw-alias-bg-layer-2,#1e1e1e);color:inherit;font:inherit;font-size:12px}',
+        '.mr-ws-path{margin-top:4px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11.5px;color:var(--dsw-alias-label-secondary,#9a9a9a);word-break:break-all}',
+        '.mr-select{min-width:200px;max-width:100%;height:28px;padding:0 8px;border-radius:6px;border:1px solid var(--dsw-alias-border-l1,#3a3a3a);background:var(--dsw-alias-bg-layer-2,#1e1e1e);color:inherit;font:inherit;font-size:12px}',
         '.mr-list{display:flex;flex-direction:column;border:1px solid var(--dsw-alias-border-l1,#333);border-radius:8px}',
         '.mr-item{position:relative;display:flex;align-items:center;gap:12px;padding:9px 12px;border-top:1px solid var(--dsw-alias-border-l1,#333)}',
         '.mr-item:first-child{border-top:none;border-radius:7px 7px 0 0}',
@@ -328,6 +329,22 @@
           if (workspaces[i].path === wanted) return workspaces[i]
         }
         return workspaces[0]
+      }
+
+      /**
+       * The name a workspace is switched by: the registry title when the GUI has
+       * one, otherwise the last path segment. The full path is always shown next
+       * to the picker, so two workspaces sharing a name are still distinguishable.
+       *
+       * @param {{ path?: string, title?: string } | undefined} item
+       * @returns {string}
+       */
+      function workspaceName(item) {
+        var title = item === undefined || item === null ? undefined : item.title
+        if (typeof title === 'string' && title.trim() !== '') return title.trim()
+        var path = item === undefined || item === null || typeof item.path !== 'string' ? '' : item.path
+        var parts = path.split(/[\\/]/).filter(function (part) { return part !== '' })
+        return parts.length > 0 ? parts[parts.length - 1] : path
       }
 
       function Manager(props) {
@@ -577,16 +594,19 @@
           children.push(h('p', { className: 'mr-note', key: 'loading' }, '正在读取根表…'))
         } else {
           var workspaceOptions = ((state && state.workspaces) || []).map(function (item) {
-            return h('option', { key: item.key, value: item.path }, item.path)
+            return h('option', { key: item.key, value: item.path, title: item.path }, workspaceName(item))
           })
           children.push(h('div', { className: 'mr-ws', key: 'ws' },
             h('span', { className: 'mr-note' }, '工作区'),
             h('select', {
               className: 'mr-select',
               value: focusPath,
+              'aria-label': '切换工作区',
               onChange: function (event) { setWorkspace(event.target.value) },
             }, workspaceOptions.length > 0 ? workspaceOptions : h('option', { value: '' }, '（尚未记录任何工作区）')),
           ))
+          children.push(h('div', { className: 'mr-ws-path', key: 'ws-path', title: focusPath },
+            focusPath === '' ? '（未选择工作区）' : focusPath))
 
           var items = []
           if (roots.length === 0) {

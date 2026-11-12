@@ -231,8 +231,8 @@ test('the dialog follows the session the sidebar is showing', async () => {
     json: async () => ({
       ok: true,
       workspaces: [
-        { key: 'd:\\work\\api', path: 'D:\\work\\api', roots: [] },
-        { key: 'd:\\work\\web', path: 'D:\\work\\web', roots: [] },
+        { key: 'd:\\work\\api', path: 'D:\\work\\api', title: 'API', roots: [] },
+        { key: 'd:\\work\\web', path: 'D:\\work\\web', title: 'Web', roots: [] },
       ],
       config: { maxRoots: 16 },
       store: 'C:\\Users\\x\\.dsh\\storages\\dsh_multi_root.json',
@@ -249,7 +249,20 @@ test('the dialog follows the session the sidebar is showing', async () => {
       tree = render({ type: settings.Component, props: { ctx } })
       await new Promise((resolve) => setTimeout(resolve, 0))
     }
-    assert.equal(findSelect(tree).props.value, 'D:\\work\\web')
+    const select = findSelect(tree)
+    assert.equal(select.props.value, 'D:\\work\\web')
+    assert.deepEqual(
+      select.props.children.map((option) => option.props.children),
+      ['API', 'Web'],
+      'the picker lists workspace names, not paths',
+    )
+    assert.deepEqual(
+      select.props.children.map((option) => option.props.value),
+      ['D:\\work\\api', 'D:\\work\\web'],
+      'each option still carries the path as its value',
+    )
+    const pathLine = findByClass(tree, 'mr-ws-path')
+    assert.equal(pathLine.props.children, 'D:\\work\\web', 'the focused workspace path is shown verbatim')
   } finally {
     globalThis.fetch = previousFetch
     if (previousStorage === undefined) delete globalThis.localStorage
@@ -269,6 +282,21 @@ function findSelect(node) {
   }
   if (node.type === 'select') return node
   return findSelect(node.props === undefined ? undefined : node.props.children)
+}
+
+/** The first rendered element carrying the given class name. */
+function findByClass(node, className) {
+  if (node === null || node === undefined || typeof node !== 'object') return undefined
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = findByClass(child, className)
+      if (found !== undefined) return found
+    }
+    return undefined
+  }
+  const classes = node.props === undefined ? undefined : node.props.className
+  if (typeof classes === 'string' && classes.split(/\s+/).indexOf(className) >= 0) return node
+  return findByClass(node.props === undefined ? undefined : node.props.children, className)
 }
 
 /**

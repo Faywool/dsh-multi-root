@@ -157,6 +157,8 @@ DSH 0.2.2 不要求客户端插件有构建产物：`package.json` 里 `exports[
 
 弹窗的开合状态存在 bundle 模块级的小 store 里（`dialog` + `subscribe` / `setDialogOpen`），因为入口按钮和弹窗分属两棵组件树。刻意**不注册** `sidebar.panellist`（左栏顶部图标）与 `main`（整页主面板）：上游是弹窗，整页会顶掉会话。
 
+工作区选择器的显示值是**名字**、值是**路径**：`workspaceName(item)` 先取 `workspaceRegistry` 给的 `title`，没有就取路径最后一段；选中后紧跟在工具栏下面渲染一行 `.mr-ws-path` 显示完整路径（等宽小字、可换行），所以两个同名工作区也不会认错，而 `<option>` 的 `title` 属性同时挂着完整路径供悬停查看。切工作区只是改查询条件——根表本身按工作区路径分组，切过去自然是那一套。
+
 样式只用 DSH 已发布的主题令牌（`client/Theme/listTokens` 里那 14 个 `--dsw-alias-*` 加 `--dsw-specific-sidebar-fill`），全部带 fallback；早先自造的 `--dsw-text-primary` / `--dsw-surface` / `--dsw-border` 并不存在，等于一直在吃 fallback，所以看起来"不像 DSH"。常用映射：弹窗 `bg-layer-1`、浮层 `bg-overlay`、弱边框 `border-l1`、强边框 `border-l2`、主文字 `label-primary`、次文字 `label-secondary`、错误 `state-error-primary`。
 
 根表每行两段：左半 `.mr-main`（加粗别名 + 徽章 + git 在上、等宽路径在下），右半 `.mr-actions`（浏览、可写/只读切换、以及最右侧的 `⋯`）。次要操作全部收进 `⋯` 菜单：重命名、Skill Namespace、复制路径、启用/停用技能、在文件管理器中打开、上移、下移、移除。菜单用 `position:fixed` + 点击时 `getBoundingClientRect()` 算出的 `right/top`（或 `bottom`）渲染——绝对定位会被 `.mr-dialog-body{overflow:auto}` 裁掉，这是实测出来的（`.mr-list` 的 `overflow:hidden` 也一样会裁）。

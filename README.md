@@ -93,7 +93,7 @@ workspace_find(query="src/api", alias="backend")
 
 入口只有一个：**左栏左下角**、设置按钮那一行（上游插件放 Folders 的位置）。侧栏窄成图标栏时是一个图标，展开时是「图标 + 多仓库工作区」。点它打开一个居中弹窗——不是整页主面板，左栏顶部也不会多出菜单项：
 
-- 切换工作区（根是按工作区分开保存的；打开弹窗时默认选中左侧栏当前会话所在的那个工作区——客户端把 `localStorage['dsh.sessions.current']` 里的会话 id 带在 `GET /dsh-multi-root/state?session=…` 上，宿主用 `sessions.get(id).header.cwd` 换成目录再匹配）
+- 切换工作区：下拉里列的是**工作区名字**（DSH 登记的名字；没有名字时用目录名），选中后紧跟一行显示该工作区的**完整路径**，一眼能对上左栏那个工作区。根是按工作区分开保存的；打开弹窗时默认选中左侧栏当前会话所在的那个工作区——客户端把 `localStorage['dsh.sessions.current']` 里的会话 id 带在 `GET /dsh-multi-root/state?session=…` 上，宿主用 `sessions.get(id).header.cwd` 换成目录再匹配
 - 每个根一行：左边是加粗的**别名**（悬停显示 id 与技能命名空间）、下面是等宽小字路径、右上角是 git 分支与脏标记、可写/只读徽章、技能开关徽章
 - 行右边只留两个常按的按钮「浏览」「设为只读/可写」，其余操作收进最右侧的「⋯」菜单：重命名、Skill Namespace、复制路径、启用/停用技能、在文件管理器中打开、上移、下移、移除。菜单是 fixed 定位的浮层，不会被弹窗的滚动区裁掉；点别处或按 Esc 关闭
 - 「重命名」和「Skill Namespace」在列表下方展开一行内联编辑（输入框 + 保存/取消，Enter 提交、Esc 取消）——**不用 `window.prompt`**：Electron 的渲染进程不支持它，调用会被静默吞成 `undefined`，点了等于没点
