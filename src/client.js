@@ -123,7 +123,7 @@
         '.mr-sheet-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:6px}',
         '.mr-sheet .mr-input{display:block;box-sizing:border-box;width:100%;height:38px;padding:0 12px;border-radius:8px;border:1px solid rgba(128,128,128,.34);background:var(--dsw-alias-bg-base,#141414);color:var(--dsw-alias-label-primary,#f2f2f2);font:inherit;font-size:13.5px;line-height:1.4;outline:none;appearance:none;-webkit-appearance:none;transition:border-color .12s ease,box-shadow .12s ease}',
         '.mr-sheet .mr-input:focus{border-color:var(--dsw-alias-brand-primary,#4a8fd6);box-shadow:0 0 0 2px rgba(74,143,214,.22)}',
-        '.mr-primary{border-color:transparent;background:var(--dsw-alias-brand-primary,#3f7fd0);color:#fff;font-weight:600}',
+        '.mr-primary{border-color:var(--dsw-alias-brand-primary,#4a8fd6);color:var(--dsw-alias-brand-primary,#7fb3e8);font-weight:600}',
         '.mr-edit-error{color:var(--dsw-alias-state-error-primary,#e08b8b);font-size:12px}',
         '.mr-note{margin:0;color:var(--dsw-alias-label-secondary,#9a9a9a);font-size:12px;line-height:1.6}',
         '.mr-error{margin:0;color:var(--dsw-alias-state-error-primary,#e08b8b);font-size:12px}',
@@ -708,16 +708,68 @@
           children.push(h('div', { className: 'mr-list', key: 'list' }, items))
 
           if (edit !== null) {
+            var sheetSkin = {
+              border: '1px solid rgba(128,128,128,.28)',
+              borderRadius: '12px',
+              background: 'var(--dsw-alias-bg-layer-1, #1b1b1b)',
+              boxShadow: '0 24px 64px rgba(0,0,0,.55)',
+            }
+            var fieldSkin = {
+              display: 'block',
+              boxSizing: 'border-box',
+              width: '100%',
+              height: '38px',
+              padding: '0 12px',
+              borderRadius: '8px',
+              border: '1px solid rgba(128,128,128,.38)',
+              background: 'rgba(0,0,0,.28)',
+              color: 'var(--dsw-alias-label-primary, #f2f2f2)',
+              fontFamily: 'inherit',
+              fontSize: '13.5px',
+              lineHeight: '36px',
+              outline: 'none',
+              appearance: 'none',
+            }
+            var ghostSkin = {
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '32px',
+              padding: '0 16px',
+              borderRadius: '7px',
+              border: '1px solid rgba(128,128,128,.42)',
+              background: 'transparent',
+              color: 'inherit',
+              fontFamily: 'inherit',
+              fontSize: '12.5px',
+              cursor: 'pointer',
+            }
+            var primarySkin = {
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '32px',
+              padding: '0 18px',
+              borderRadius: '7px',
+              border: '1px solid var(--dsw-alias-brand-primary, #4a8fd6)',
+              background: 'transparent',
+              color: 'var(--dsw-alias-brand-primary, #7fb3e8)',
+              fontFamily: 'inherit',
+              fontSize: '12.5px',
+              fontWeight: '600',
+              cursor: busy ? 'default' : 'pointer',
+            }
             children.push(h('div', {
               className: 'mr-overlay mr-overlay--nested',
               key: 'edit',
               onMouseDown: function (event) { if (event.target === event.currentTarget) setEdit(null) },
             },
-              h('div', { className: 'mr-sheet', role: 'dialog', 'aria-modal': 'true' },
+              h('div', { className: 'mr-sheet', role: 'dialog', 'aria-modal': 'true', style: sheetSkin },
                 h('div', { className: 'mr-sheet-title' },
                   edit.field === 'alias' ? '重命名 ' + edit.label : 'Skill Namespace：' + edit.label),
                 h('input', {
                   className: 'mr-input',
+                  style: fieldSkin,
                   value: edit.value,
                   autoFocus: true,
                   spellCheck: false,
@@ -741,11 +793,13 @@
                 h('div', { className: 'mr-sheet-actions' },
                   h('button', {
                     className: 'mr-btn',
+                    style: ghostSkin,
                     type: 'button',
                     onClick: function () { setEdit(null) },
                   }, '取消'),
                   h('button', {
                     className: 'mr-btn mr-primary',
+                    style: primarySkin,
                     type: 'button',
                     disabled: busy,
                     onClick: submitEdit,
