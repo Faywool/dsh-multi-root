@@ -106,6 +106,7 @@
         '.mr-btn{display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 10px;border-radius:6px;border:1px solid var(--dsw-alias-border-l1,#3a3a3a);background:transparent;color:var(--dsw-alias-label-primary,#e6e6e6);font:inherit;font-size:12px;cursor:pointer;white-space:nowrap;appearance:none;-webkit-appearance:none}',
         '.mr-btn:hover{background:var(--dsw-alias-bg-layer-2,#242424);border-color:var(--dsw-alias-border-l2,#4a4a4a)}',
         '.mr-btn:disabled{opacity:.45;cursor:default;background:transparent}',
+        '.mr-primary{font-weight:600}',
         '.mr-icon-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border-radius:6px;border:1px solid transparent;background:transparent;color:var(--dsw-alias-label-secondary,#9a9a9a);font:inherit;font-size:15px;line-height:1;cursor:pointer;appearance:none;-webkit-appearance:none}',
         '.mr-icon-btn:hover{background:var(--dsw-alias-bg-layer-2,#242424);color:var(--dsw-alias-label-primary,#e6e6e6)}',
         '.mr-icon-btn[aria-expanded="true"]{background:var(--dsw-alias-bg-layer-2,#242424);border-color:var(--dsw-alias-border-l1,#3a3a3a);color:var(--dsw-alias-label-primary,#e6e6e6)}',
@@ -121,7 +122,7 @@
         '.mr-sheet-title{font-size:14px;font-weight:600;line-height:1.4;color:var(--dsw-alias-label-primary,#f0f0f0)}',
         '.mr-sheet-hint{margin-top:-4px;font-size:12px;line-height:1.6;color:var(--dsw-alias-label-secondary,#9a9a9a)}',
         '.mr-sheet-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:6px}',
-        '.mr-sheet .mr-input{display:block;box-sizing:border-box;width:100%;height:38px;padding:0 12px;border-radius:8px;border:1px solid rgba(128,128,128,.34);background:var(--dsw-alias-bg-base,#141414);color:var(--dsw-alias-label-primary,#f2f2f2);font:inherit;font-size:13.5px;line-height:1.4;outline:none;appearance:none;-webkit-appearance:none;transition:border-color .12s ease,box-shadow .12s ease}',
+        '.mr-sheet .mr-input{display:block;box-sizing:border-box;width:100%;height:36px;padding:0 12px;border-radius:8px;border:1px solid rgba(128,128,128,.34);background:var(--dsw-alias-bg-base,#141414);color:var(--dsw-alias-label-primary,#f2f2f2);font:inherit;font-size:13.5px;line-height:1.4;outline:none;appearance:none;-webkit-appearance:none;transition:border-color .12s ease,box-shadow .12s ease}',
         '.mr-sheet .mr-input:focus{border-color:var(--dsw-alias-brand-primary,#4a8fd6);box-shadow:0 0 0 2px rgba(74,143,214,.22)}',
         '.mr-primary{border-color:var(--dsw-alias-brand-primary,#4a8fd6);color:var(--dsw-alias-brand-primary,#7fb3e8);font-weight:600}',
         '.mr-edit-error{color:var(--dsw-alias-state-error-primary,#e08b8b);font-size:12px}',
@@ -755,6 +756,14 @@
                       setEdit(null)
                     }
                   },
+                  onFocus: function (event) {
+                    event.target.style.borderColor = 'var(--dsw-alias-brand-primary, #4a8fd6)'
+                    event.target.style.boxShadow = '0 0 0 2px rgba(74,143,214,.18)'
+                  },
+                  onBlur: function (event) {
+                    event.target.style.borderColor = ''
+                    event.target.style.boxShadow = ''
+                  },
                 }),
                 h('div', { className: 'mr-sheet-hint' },
                   edit.field === 'alias'
@@ -762,13 +771,18 @@
                     : '技能名的前缀，只能用小写字母、数字、点、下划线和短横线。'),
                 edit.error === '' ? null : h('div', { className: 'mr-edit-error' }, edit.error),
                 h('div', { className: 'mr-sheet-actions' },
-                  h(SkinButton, {
+                  h('button', {
                     key: 'cancel',
+                    type: 'button',
+                    className: 'mr-btn',
+                    style: { height: '30px', padding: '0 14px', borderRadius: '7px' },
                     onClick: function () { setEdit(null) },
                   }, '取消'),
-                  h(SkinButton, {
+                  h('button', {
                     key: 'save',
-                    primary: true,
+                    type: 'button',
+                    className: 'mr-btn mr-primary',
+                    style: { height: '30px', padding: '0 16px', borderRadius: '7px', fontWeight: '600' },
                     disabled: busy,
                     onClick: submitEdit,
                   }, '保存'),
@@ -925,52 +939,10 @@
       }
 
       /**
-       * A button that owns its own look entirely: inline styles for the base
-       * state (so host button resets cannot reach it) and inline hover/focus
-       * feedback driven by React state, because an inline background would
-       * otherwise beat any :hover rule from our stylesheet.
+       * Dialog buttons reuse the same `.mr-btn` rules as the list rows, so
+       * hover feedback (subtle layer-2 fill plus a stronger border) matches the
+       * rest of the panel and the host's own ghost buttons.
        */
-      function SkinButton(props) {
-        var hovered = React.useState(false)
-        var over = hovered[0]
-        var setOver = hovered[1]
-        var primary = !!(props && props.primary)
-        var disabled = !!(props && props.disabled)
-        var base = {
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '32px',
-          padding: primary ? '0 16px' : '0 14px',
-          borderRadius: '8px',
-          border: '1px solid rgba(128,128,128,.30)',
-          background: 'transparent',
-          color: 'inherit',
-          fontFamily: 'inherit',
-          fontSize: '13px',
-          fontWeight: primary ? '600' : '400',
-          lineHeight: '1',
-          cursor: disabled ? 'default' : 'pointer',
-          opacity: disabled ? '0.5' : '1',
-          transition: 'border-color .12s ease, color .12s ease',
-          appearance: 'none',
-          WebkitAppearance: 'none',
-        }
-        if (over && !disabled) {
-          base.borderColor = 'var(--dsw-alias-border-l2, rgba(170,170,170,.78))'
-        }
-        return h('button', {
-          type: 'button',
-          className: props.className,
-          style: base,
-          disabled: disabled,
-          onClick: props.onClick,
-          onMouseEnter: function () { setOver(true) },
-          onMouseLeave: function () { setOver(false) },
-          onFocus: function () { setOver(true) },
-          onBlur: function () { setOver(false) },
-        }, props.children)
-      }
 
       /**
        * The bottom-left entry in the sidebar: an icon in the 56px rail, an
