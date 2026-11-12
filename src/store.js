@@ -15,7 +15,7 @@
  * @module dsh-multi-root/store
  */
 
-import { readJsonFile, report, describeError, quarantine, writeJsonFileAtomic } from './util.js'
+import { canonicalKey, readJsonFile, report, describeError, quarantine, writeJsonFileAtomic } from './util.js'
 import { sanitizeRoots } from './roots.js'
 
 /** Schema version written into the store. */
@@ -23,25 +23,37 @@ export const STORE_VERSION = 2
 
 /**
  * Coerce whatever was on disk into the document shape this module writes.
+ *
+ * Keys are rewritten through `canonicalKey`, so a document written before the
+ * store agreed with the rest of the plugin (backslash keys) merges into the
+ * current spelling instead of looking empty. `rekeyed` tells the caller that
+ * the document on disk should be rewritten.
+ *
  * @param {unknown} value - parsed JSON, if any.
- * @returns {{ version: number, workspaces: Record<string, { path: string, roots: { alias: string, path: string, mode: string }[], updatedAt: string }> }} the document.
+ * @returns {{ document: { version: number, workspaces: Record<string, { path: string, roots: { alias: string, path: string, mode: string }[], searchEnabled: boolean, updatedAt: string }> }, rekeyed: boolean }} the document plus whether keys changed.
  */
 function coerceDocument(value) {
   const workspaces = {}
+  let rekeyed = false
   const source = value?.workspaces
   if (source !== null && typeof source === 'object' && !Array.isArray(source)) {
     for (const [key, entry] of Object.entries(source)) {
       if (typeof key !== 'string' || key === '') continue
       const path = typeof entry?.path === 'string' && entry.path.trim() !== '' ? entry.path : undefined
       if (path === undefined) continue
-      workspaces[key] = {
-        path,
-        roots: sanitizeRoots(entry?.roots),
+      const target = canonicalKey(path)
+      if (target !== key) rekeyed = true
+      const previous = workspaces[target]
+      const roots = sanitizeRoots(previous === undefined ? entry?.roots : [...previous.roots, ...(entry?.roots ?? [])])
+      workspaces[target] = {
+        path: previous?.path ?? path,
+        roots,
+        searchEnabled: (previous?.searchEnabled ?? true) && entry?.searchEnabled !== false,
         updatedAt: typeof entry?.updatedAt === 'string' ? entry.updatedAt : new Date(0).toISOString(),
       }
     }
   }
-  return { version: STORE_VERSION, workspaces }
+  return { document: { version: STORE_VERSION, workspaces }, rekeyed }
 }
 
 /**
@@ -73,7 +85,12 @@ export class RootStore {
 
   /**
    * Read and coerce the document, quarantining it if it cannot be parsed.
-   * @returns {Promise<ReturnType<typeof coerceDocument>>} the current document.
+   *
+   * A document that needed upgrading (legacy version, legacy key spelling) is
+   * written back immediately, because both upgrades mint stable identities: the
+   * ids of roots and the canonical key of each workspace.
+   *
+   * @returns {Promise<{ version: number, workspaces: Record<string, { path: string, roots: object[], searchEnabled: boolean, updatedAt: string }> }>} the current document.
    */
   async read() {
     const { value, damaged } = await readJsonFile(this.#file)
@@ -81,21 +98,18 @@ export class RootStore {
       const backup = await quarantine(this.#file)
       report(this.#logger, 'warn',
         `store was not valid JSON; starting empty${backup === undefined ? '' : ` (kept the damaged copy at ${backup})`}`)
-      return coerceDocument(undefined)
+      return coerceDocument(undefined).document
     }
-    if (value !== undefined && value !== null && value.version !== STORE_VERSION) {
-      // A legacy document gets its ids minted here. Writing the upgrade back
-      // immediately is what keeps those ids stable: minting a fresh set on every
-      // read would make every id a caller saw yesterday meaningless.
-      const upgraded = coerceDocument(value)
+    const { document, rekeyed } = coerceDocument(value)
+    const legacyVersion = value !== undefined && value !== null && value.version !== STORE_VERSION
+    if (legacyVersion || rekeyed) {
       try {
-        await writeJsonFileAtomic(this.#file, upgraded)
+        await writeJsonFileAtomic(this.#file, document)
       } catch (error) {
         report(this.#logger, 'warn', `store upgrade could not be persisted: ${describeError(error)}`)
       }
-      return upgraded
     }
-    return coerceDocument(value)
+    return document
   }
 
   /**
@@ -150,20 +164,62 @@ export class RootStore {
       document.workspaces[key] = {
         path: workspacePath,
         roots: sanitizeRoots(roots),
+        searchEnabled: document.workspaces[key]?.searchEnabled !== false,
         updatedAt: new Date().toISOString(),
       }
     })
   }
 
   /**
+   * Whether content search (`workspace_grep`) is enabled for one workspace.
+   *
+   * Defaults to `true`: the toggle exists so a workspace with huge roots can
+   * opt out, not so every workspace has to opt in.
+   *
+   * @param {string} workspacePath - absolute workspace directory.
+   * @returns {Promise<boolean>} the flag.
+   */
+  async searchEnabled(workspacePath) {
+    const document = await this.read()
+    const entry = document.workspaces[canonical(workspacePath)]
+    return entry === undefined ? true : entry.searchEnabled !== false
+  }
+
+  /**
+   * Turn content search on or off for one workspace.
+   *
+   * Creating the entry when it does not exist keeps the flag independent from
+   * the root list: a workspace can disable search before attaching anything.
+   *
+   * @param {string} workspacePath - absolute workspace directory.
+   * @param {boolean} enabled - the new value.
+   * @returns {Promise<boolean>} the value that was stored.
+   */
+  async setSearchEnabled(workspacePath, enabled) {
+    const value = enabled !== false
+    await this.update((document) => {
+      const key = canonical(workspacePath)
+      const existing = document.workspaces[key]
+      document.workspaces[key] = {
+        path: existing?.path ?? workspacePath,
+        roots: existing?.roots ?? [],
+        searchEnabled: value,
+        updatedAt: new Date().toISOString(),
+      }
+    })
+    return value
+  }
+
+  /**
    * Every workspace entry, for diagnostics and migration.
-   * @returns {Promise<{ path: string, roots: { alias: string, path: string, mode: string }[] }[]>} the entries.
+   * @returns {Promise<{ path: string, roots: { alias: string, path: string, mode: string }[], searchEnabled: boolean }[]>} the entries.
    */
   async entries() {
     const document = await this.read()
     return Object.values(document.workspaces).map((entry) => ({
       path: entry.path,
       roots: entry.roots.map((root) => ({ ...root })),
+      searchEnabled: entry.searchEnabled !== false,
     }))
   }
 }
@@ -171,10 +227,13 @@ export class RootStore {
 /**
  * Canonical map key for a workspace path.
  *
- * Kept private to the store so every read and write agrees on one spelling.
+ * Delegates to `canonicalKey` so the store, the routes and the tools all spell
+ * a workspace the same way; two spellings of one directory used to produce two
+ * separate entries.
+ *
  * @param {string} path - workspace directory.
  * @returns {string} the key.
  */
 function canonical(path) {
-  return process.platform === 'win32' ? path.replace(/[\\/]+$/, '').toLowerCase() : path.replace(/[\\/]+$/, '')
+  return canonicalKey(path)
 }

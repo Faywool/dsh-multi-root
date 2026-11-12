@@ -4,6 +4,28 @@ All notable changes to this plugin are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `workspace_grep` tool: search file *contents* across every attached root in one
+  call, with `glob`, `regex`, `ignoreCase`, `context`, `alias` and `maxResults`.
+  Output groups matches by root and always ends with a trailer (files visited,
+  files scanned, binary/oversize skips, elapsed) plus the reason a search was
+  truncated, so "no match" cannot be confused with "gave up early".
+- Per-workspace `searchEnabled` switch (panel checkbox next to the workspace
+  picker, `/multi-root search [on|off]`, `POST /dsh-multi-root/state` with
+  `action: "search"`). Off means the tool answers one sentence and reads nothing.
+- A glob without a path separator (`*.cs`) matches the file name at any depth;
+  a glob with one (`src/**`) matches the relative path.
+
+### Fixed
+
+- The store now keys workspaces through `canonicalKey`, the same spelling the
+  routes and tools use. Documents written with the older backslash keys are
+  re-keyed on first read and written back, so an existing root list cannot look
+  empty after the upgrade.
+
 ## [0.1.0] - 2026-11-12
 
 First release. The plugin re-implements the multi-root workspace feature without

@@ -261,6 +261,26 @@ test('POST mode flips one root and rejects an unknown mode', async (t) => {
   assert.match(rejected.body.error, /mode must be one of/)
 })
 
+test('POST search turns content search off and the state reports it', async (t) => {
+  const { repo, store, snapshot } = await fixture(t)
+  await store.write(WORKSPACE, [{ alias: 'repo', path: repo, mode: 'readwrite' }])
+  const box = {}
+  registerRoutes(makeContext(box), deps(store, snapshot))
+  const handler = route(box, STATE_ROUTE)
+
+  const before = await call(handler, 'GET')
+  assert.equal(before.body.workspaces[0].searchEnabled, true, 'content search starts on')
+
+  const off = await call(handler, 'POST', { action: 'search', workspace: WORKSPACE, enabled: false })
+  assert.equal(off.body.ok, true)
+  assert.equal(off.body.workspaces[0].searchEnabled, false, 'the mutation answers with fresh state')
+  assert.equal(await store.searchEnabled(WORKSPACE), false, 'and it persisted')
+
+  const on = await call(handler, 'POST', { action: 'search', workspace: WORKSPACE, enabled: true })
+  assert.equal(on.body.workspaces[0].searchEnabled, true)
+  assert.equal((await call(handler, 'GET')).body.workspaces[0].searchEnabled, true)
+})
+
 test('a cross-origin write is refused and changes nothing', async (t) => {
   const { repo, store, snapshot } = await fixture(t)
   const box = {}

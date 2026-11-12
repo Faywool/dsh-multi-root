@@ -25,6 +25,7 @@ import { RootSnapshot } from './snapshot.js'
 import { GitStatusCache } from './git.js'
 import { createRootsTool } from './tool.js'
 import { createFindTool, FIND_TOOL_NAME } from './find-tool.js'
+import { createGrepTool, GREP_TOOL_NAME } from './grep-tool.js'
 import { COMMAND_NAME, registerCommand } from './command.js'
 import { registerSkillProvider, SKILL_PROVIDER } from './skills.js'
 import { registerRoutes } from './routes.js'
@@ -36,6 +37,7 @@ import { describeError, debug, noteDiagnostic, report, storePath } from './util.
 export { Config } from './config.js'
 export { SECTION_NAME, TOOL_NAME } from './prompt.js'
 export { FIND_TOOL_NAME } from './find-tool.js'
+export { GREP_TOOL_NAME } from './grep-tool.js'
 export { COMMAND_NAME } from './command.js'
 export { SKILL_PROVIDER, SKILL_DIRECTORIES } from './skills.js'
 
@@ -173,6 +175,10 @@ function mount(ctx, configOf) {
 
   if (guard(ctx, 'workspace_find tool', () => registerTool(ctx, createFindTool({ ctx, snapshot, configOf, logger })))) {
     mounted.push(FIND_TOOL_NAME)
+  }
+
+  if (guard(ctx, 'workspace_grep tool', () => registerTool(ctx, createGrepTool({ ctx, store, snapshot, logger })))) {
+    mounted.push(GREP_TOOL_NAME)
   }
 
   withService(ctx, 'commands', 'slash command', (commands) => {

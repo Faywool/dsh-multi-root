@@ -89,6 +89,25 @@ workspace_find(query="src/api", alias="backend")
 
 这就是"@ 补全覆盖额外根"的替代：DSH 0.2.2 的 `@` 只索引会话工作目录，要扩展得替换 `ctx.fs`（正是旧插件翻车的地方）。用这个工具反而不会碎。
 
+### 跨仓库搜内容
+
+`workspace_find` 找的是**文件名**，`workspace_grep` 找的是**文件内容**：
+
+```
+workspace_grep(pattern="IPriceBook")
+workspace_grep(pattern="class ", glob="*.cs")
+workspace_grep(pattern="订单", alias="PSREF_Backend")
+workspace_grep(pattern="value\\s*=\\s*4\\d", regex=true, glob="*.ts")
+```
+
+- `glob` 不带路径分隔符时按**文件名**匹配、任意深度生效（`*.cs` 就是"所有 .cs"）；带分隔符时按相对路径匹配（`src/**`）
+- 输出按根分组，每行 `相对路径:行号: 命中行`；`context` 可带上下一两行
+- 末尾永远有一行体检报告：`scanned 27604 of 42542 visited files · 5 match(es) · 8067 ms`，被跳过时会补 `N skipped (binary)` / `N skipped (larger than 512 KiB)`，被预算或命中上限截断时补一句说明。没有这行时，"没找到"和"提前放弃"长得一模一样，模型会自信地给出错误结论
+- 预算：12 秒、6 万个文件、200 条命中、单文件 512 KiB、单行 4000 字符；六个仓库全扫完约 8 秒，加 `alias` 或 `glob` 通常 200 毫秒
+- **每个工作区各有开关**：弹窗里工作区下拉框右边那个「内容搜索」勾选框。关掉之后这个工作区的 `workspace_grep` 只回一句话，一个文件都不读；`workspace_find`（找文件名）不受影响
+
+不做索引、不做语义搜索，也不替代 DSH 自带的 grep——它只是把"跨六个仓库各跑一次 grep 再人工合并"变成一次调用。
+
 ### 侧栏入口、弹窗与设置页
 
 入口只有一个：**左栏左下角**、设置按钮那一行（上游插件放 Folders 的位置）。侧栏窄成图标栏时是一个图标，展开时是「图标 + 多仓库工作区」。点它打开一个居中弹窗——不是整页主面板，左栏顶部也不会多出菜单项：
@@ -123,6 +142,7 @@ workspace_find(query="src/api", alias="backend")
 /multi-root open api
 /multi-root find Settings
 /multi-root dirs backend src
+/multi-root search on
 ```
 
 `detach` / `alias` / `mode` / `skills` / `namespace` / `move` / `open` 都接受 id、别名或绝对路径。

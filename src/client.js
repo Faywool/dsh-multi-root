@@ -87,6 +87,10 @@
         '.mr-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}',
         '.mr-ws{display:flex;align-items:center;gap:8px;min-width:0}',
         '.mr-ws-path{margin-top:4px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11.5px;color:var(--dsw-alias-label-secondary,#9a9a9a);word-break:break-all}',
+        '.mr-check{display:inline-flex;align-items:center;gap:6px;height:var(--mr-btn-h);padding:0 10px;border-radius:var(--mr-btn-radius);border:1px solid var(--mr-btn-border);color:var(--mr-btn-fg);font-size:12px;cursor:pointer;user-select:none;white-space:nowrap;transition:var(--mr-btn-ease)}',
+        '.mr-check:hover{background:var(--mr-btn-bg-hover);border-color:var(--mr-btn-border-hover)}',
+        '.mr-check input{width:13px;height:13px;margin:0;accent-color:var(--dsw-alias-brand-primary,#4a8fd6);cursor:pointer}',
+        '.mr-check:has(input:not(:checked)){color:var(--mr-btn-fg-dim)}',
         '.mr-select{min-width:200px;max-width:100%;height:30px;padding:0 8px;border-radius:6px;border:1px solid var(--dsw-alias-border-l1,#3a3a3a);background:var(--dsw-alias-bg-layer-2,#1e1e1e);color:inherit;font:inherit;font-size:12px}',
         '.mr-list{display:flex;flex-direction:column;border:1px solid var(--dsw-alias-border-l1,#333);border-radius:8px}',
         '.mr-item{position:relative;display:flex;align-items:center;gap:12px;padding:9px 12px;border-top:1px solid var(--dsw-alias-border-l1,#333)}',
@@ -516,6 +520,7 @@
         var focus = pickWorkspace(state, workspace !== '' ? workspace : selectionWorkspacePath(ctx))
         var focusPath = focus ? focus.path : ''
         var roots = (focus && focus.roots) || []
+        var searchEnabled = !focus || focus.searchEnabled !== false
         var maxRoots = state && state.config ? state.config.maxRoots : 16
         var full = roots.length >= maxRoots
 
@@ -631,6 +636,20 @@
               'aria-label': '切换工作区',
               onChange: function (event) { setWorkspace(event.target.value) },
             }, workspaceOptions.length > 0 ? workspaceOptions : h('option', { value: '' }, '（尚未记录任何工作区）')),
+            h('label', {
+              className: 'mr-check',
+              key: 'search',
+              title: '是否允许模型在这个工作区里跨仓库搜索文件内容（workspace_grep）',
+            },
+              h('input', {
+                type: 'checkbox',
+                checked: searchEnabled,
+                onChange: function (event) {
+                  return send({ action: 'search', workspace: focusPath, enabled: event.target.checked })
+                },
+              }),
+              h('span', null, '内容搜索'),
+            ),
           ))
           children.push(h('div', { className: 'mr-ws-path', key: 'ws-path', title: focusPath },
             focusPath === '' ? '（未选择工作区）' : focusPath))

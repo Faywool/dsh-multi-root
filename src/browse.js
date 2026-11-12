@@ -278,8 +278,7 @@ export async function searchRoots(roots, query, options = {}) {
  *
  * @param {unknown} error
  * @returns {string}
- */
-export function describeFsError(error) {
+ */export function describeFsError(error) {
   const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : ''
   switch (code) {
     case 'ENOENT':
@@ -339,4 +338,292 @@ function clampInt(value, min, max, fallback) {
   const number = typeof value === 'number' ? value : Number(value)
   if (!Number.isFinite(number)) return fallback
   return Math.min(max, Math.max(min, Math.trunc(number)))
+}
+
+/* ------------------------------------------------------------------------ *
+ * Content search
+ *
+ * The name search above answers "where is this file"; this one answers
+ * "where is this string". Both are bounded the same way: a wall-clock
+ * deadline, a visited-file cap and a result cap, so a 90k-file repository
+ * cannot stall the host and the model always learns whether it saw everything.
+ * ------------------------------------------------------------------------ */
+
+/** Most files one content search opens before it gives up. */
+export const MAX_GREP_FILES = 60000
+
+/** Most bytes one content search reads from a single file. */
+export const MAX_GREP_FILE_BYTES = 512 * 1024
+
+/** Most matches one content search returns, across every root. */
+export const MAX_GREP_RESULTS = 200
+
+/** Content search wall-clock budget in milliseconds. */
+export const GREP_BUDGET_MS = 12000
+
+/** Longest line a content search examines, so one minified line cannot blow up. */
+const MAX_GREP_LINE_CHARS = 4000
+
+/** Longest pattern accepted, so a pathological regex is refused up front. */
+const MAX_PATTERN_CHARS = 200
+
+/**
+ * Extensions that are certainly not text. Sniffing a PNG for NUL bytes works,
+ * but it means reading megabytes of binary on every search; skipping by name is
+ * the difference between a search that finishes and one that times out.
+ */
+const BINARY_EXTENSIONS = new Set([
+  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.ico', '.svgz', '.avif',
+  '.woff', '.woff2', '.ttf', '.otf', '.eot',
+  '.zip', '.gz', '.tgz', '.7z', '.rar', '.jar', '.nupkg', '.whl',
+  '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+  '.dll', '.exe', '.pdb', '.so', '.dylib', '.bin', '.dat', '.cache',
+  '.mp3', '.mp4', '.mov', '.avi', '.webm', '.wav', '.flac',
+  '.sqlite', '.db', '.mdb', '.pfx', '.snk', '.keystore', '.jks',
+])
+
+/**
+ * Lower-cased extension of a file name, or '' when it has none.
+ * @param {string} name - file name.
+ * @returns {string} the extension including the dot.
+ */
+function extensionOf(name) {
+  const ext = extname(name)
+  return ext === '' ? '' : ext.toLowerCase()
+}
+
+/**
+ * Compile a small glob (`*.cs`, `src/**`, `**\/*.{ts,tsx}`) into a RegExp.
+ *
+ * Only the shapes people actually type are supported: `*`, `**`, `?` and
+ * `{a,b}`. Anything else is escaped, so a glob can never smuggle in a
+ * surprising regular expression.
+ *
+ * @param {string} glob - the pattern.
+ * @returns {RegExp | undefined} matcher, or undefined when the glob is empty.
+ */
+export function globToRegExp(glob) {
+  const source = typeof glob === 'string' ? glob.trim().replace(/\\/g, '/') : ''
+  if (source === '') return undefined
+  let out = '^'
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index]
+    if (char === '*') {
+      if (source[index + 1] === '*') {
+        if (source[index + 2] === '/') {
+          out += '(?:.*/)?'
+          index += 2
+        } else {
+          out += '.*'
+          index += 1
+        }
+      } else {
+        out += '[^/]*'
+      }
+      continue
+    }
+    if (char === '?') {
+      out += '[^/]'
+      continue
+    }
+    if (char === '{') {
+      const end = source.indexOf('}', index)
+      if (end > index) {
+        const parts = source.slice(index + 1, end).split(',')
+        out += '(?:' + parts.map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')'
+        index = end
+        continue
+      }
+    }
+    out += char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  }
+  out += '$'
+  try {
+    return new RegExp(out, 'i')
+  } catch (error) {
+    return undefined
+  }
+}
+
+/**
+ * Search the contents of every file under the declared roots.
+ *
+ * @param {Array<{ alias: string, path: string }>} roots - roots to search.
+ * @param {string} pattern - literal text, or a regular expression when `options.regex`.
+ * @param {{ regex?: boolean, ignoreCase?: boolean, glob?: string, maxResults?: number, context?: number, budgetMs?: number }} [options]
+ * @returns {Promise<{
+ *   ok: boolean,
+ *   matches: Array<{ alias: string, root: string, relative: string, absolute: string, line: number, text: string, before: string[], after: string[] }>,
+ *   filesVisited: number,
+ *   filesScanned: number,
+ *   skippedBinary: number,
+ *   skippedSize: number,
+ *   truncated: boolean,
+ *   stoppedBy?: 'budget' | 'results' | 'files',
+ *   elapsedMs: number,
+ *   reason?: string,
+ * }>}
+ */
+export async function grepRoots(roots, pattern, options = {}) {
+  const empty = {
+    ok: false,
+    matches: [],
+    filesVisited: 0,
+    filesScanned: 0,
+    skippedBinary: 0,
+    skippedSize: 0,
+    truncated: false,
+    elapsedMs: 0,
+  }
+  const raw = typeof pattern === 'string' ? pattern : ''
+  if (raw.trim() === '') return { ...empty, reason: 'the pattern is empty' }
+  if (raw.length > MAX_PATTERN_CHARS) {
+    return { ...empty, reason: `the pattern is longer than ${MAX_PATTERN_CHARS} characters` }
+  }
+
+  const started = Date.now()
+  const budget = clampInt(options.budgetMs, 200, 30000, GREP_BUDGET_MS)
+  const deadline = started + budget
+  const maxResults = clampInt(options.maxResults, 1, MAX_GREP_RESULTS, 60)
+  const context = clampInt(options.context, 0, 3, 0)
+  const ignoreCase = options.ignoreCase !== false
+  const globMatcher = globToRegExp(options.glob)
+  // A glob with no path separator means "this file name, at any depth" - the
+  // reading every caller expects from `*.cs`. Only a glob that names a
+  // directory (`src/**`) is matched against the relative path.
+  const globByBasename = typeof options.glob === 'string' && !options.glob.includes('/') && !options.glob.includes('\\')
+
+  let matchLine
+  if (options.regex === true) {
+    try {
+      const expression = new RegExp(raw, ignoreCase ? 'i' : '')
+      matchLine = (line) => expression.test(line)
+    } catch (error) {
+      return { ...empty, elapsedMs: Date.now() - started, reason: `"${raw}" is not a valid regular expression` }
+    }
+  } else {
+    const needle = ignoreCase ? raw : raw
+    matchLine = ignoreCase
+      ? (line) => line.toLowerCase().includes(raw.toLowerCase())
+      : (line) => line.includes(needle)
+  }
+
+  const matches = []
+  let filesVisited = 0
+  let filesScanned = 0
+  let skippedBinary = 0
+  let skippedSize = 0
+  let stoppedBy
+
+  for (const root of roots) {
+    if (stoppedBy !== undefined) break
+    const rootPath = resolve(root.path)
+    const queue = [{ absolute: rootPath, depth: 0 }]
+    while (queue.length > 0) {
+      if (Date.now() > deadline) {
+        stoppedBy = 'budget'
+        break
+      }
+      if (filesVisited >= MAX_GREP_FILES) {
+        stoppedBy = 'files'
+        break
+      }
+      const current = queue.shift()
+      let dirents
+      try {
+        dirents = await readdir(current.absolute, { withFileTypes: true })
+      } catch (error) {
+        continue
+      }
+      for (const dirent of dirents) {
+        if (Date.now() > deadline) {
+          stoppedBy = 'budget'
+          break
+        }
+        const isDir = dirent.isDirectory()
+        if (isDir) {
+          if (SKIPPED_DIRECTORIES.has(dirent.name)) continue
+          if (current.depth < MAX_SEARCH_DEPTH) {
+            queue.push({ absolute: join(current.absolute, dirent.name), depth: current.depth + 1 })
+          }
+          continue
+        }
+        if (!dirent.isFile()) continue
+
+        // Only regular files that pass the glob count against the visited cap,
+        // otherwise a `*.cs` search can burn its whole budget on `node_modules`
+        // entries it was never going to read.
+        const absolute = join(current.absolute, dirent.name)
+        const relativePath = relative(rootPath, absolute).split(sep).join('/')
+        const candidatePath = globByBasename ? dirent.name : relativePath
+        if (globMatcher !== undefined && !globMatcher.test(candidatePath)) continue
+        filesVisited += 1
+        if (filesVisited >= MAX_GREP_FILES) {
+          stoppedBy = 'files'
+          break
+        }
+
+        if (BINARY_EXTENSIONS.has(extensionOf(dirent.name))) {
+          skippedBinary += 1
+          continue
+        }
+
+        let info
+        try {
+          info = await stat(absolute)
+        } catch (error) {
+          continue
+        }
+        if (info.size > MAX_GREP_FILE_BYTES) {
+          skippedSize += 1
+          continue
+        }
+        let buffer
+        try {
+          buffer = await readFile(absolute)
+        } catch (error) {
+          continue
+        }
+        if (buffer.includes(0)) {
+          skippedBinary += 1
+          continue
+        }
+        filesScanned += 1
+        const lines = buffer.toString('utf8').split(/\r?\n/)
+        for (let index = 0; index < lines.length; index += 1) {
+          const line = lines[index].length > MAX_GREP_LINE_CHARS
+            ? lines[index].slice(0, MAX_GREP_LINE_CHARS)
+            : lines[index]
+          if (!matchLine(line)) continue
+          matches.push({
+            alias: root.alias,
+            root: rootPath,
+            relative: relativePath,
+            absolute,
+            line: index + 1,
+            text: line.trim(),
+            before: context > 0 ? lines.slice(Math.max(0, index - context), index) : [],
+            after: context > 0 ? lines.slice(index + 1, index + 1 + context) : [],
+          })
+          if (matches.length >= maxResults) {
+            stoppedBy = 'results'
+            break
+          }
+        }
+        if (stoppedBy === 'results') break
+      }
+    }
+  }
+
+  return {
+    ok: true,
+    matches,
+    filesVisited,
+    filesScanned,
+    skippedBinary,
+    skippedSize,
+    truncated: stoppedBy !== undefined,
+    stoppedBy,
+    elapsedMs: Date.now() - started,
+  }
 }

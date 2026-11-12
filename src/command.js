@@ -40,7 +40,7 @@ export function registerCommand({ ctx, commands, store, snapshot, configOf, logg
   commands.register({
     name: COMMAND_NAME,
     description: 'List or change the repositories attached to this workspace by dsh-multi-root.',
-    input: { hint: 'list | attach | detach | alias | mode | skills | namespace | move | open | find | dirs' },
+    input: { hint: 'list | attach | detach | alias | mode | skills | namespace | move | open | find | dirs | search' },
     handler: async (invocation) => {
       try {
         const config = configOf()
@@ -160,6 +160,20 @@ export function registerCommand({ ctx, commands, store, snapshot, configOf, logg
           await store.write(workspace, roots)
           await snapshot.refresh()
           return { kind: 'success', text: `Skill namespace of \`${roots[index].alias}\` is now \`${folded}\`.` }
+        }
+
+        if (action === 'search') {
+          const [state] = tokens.slice(1)
+          if (state !== undefined && state !== 'on' && state !== 'off') {
+            return { kind: 'error', text: 'Usage: /multi-root search [on|off]' }
+          }
+          if (state === undefined) {
+            const current = await store.searchEnabled(workspace)
+            return { kind: 'success', text: `Content search (workspace_grep) is ${current ? 'on' : 'off'} for ${workspace}.` }
+          }
+          const next = state === 'on'
+          await store.setSearchEnabled(workspace, next)
+          return { kind: 'success', text: `Content search (workspace_grep) is now ${next ? 'on' : 'off'} for this workspace.` }
         }
 
         if (action === 'move') {

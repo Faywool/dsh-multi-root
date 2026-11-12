@@ -221,7 +221,12 @@ async function buildState(deps, workspace, sessionId) {
   const ordered = []
   const index = new Map()
   for (const entry of entries) {
-    const item = { key: canonicalKey(entry.path), path: entry.path, roots: entry.roots }
+    const item = {
+      key: canonicalKey(entry.path),
+      path: entry.path,
+      roots: entry.roots,
+      searchEnabled: entry.searchEnabled !== false,
+    }
     ordered.push(item)
     index.set(item.key, item)
   }
@@ -232,7 +237,13 @@ async function buildState(deps, workspace, sessionId) {
       if (known.title !== undefined) hit.title = known.title
       continue
     }
-    const item = { key, path: known.path, roots: [], ...(known.title === undefined ? {} : { title: known.title }) }
+    const item = {
+      key,
+      path: known.path,
+      roots: [],
+      searchEnabled: true,
+      ...(known.title === undefined ? {} : { title: known.title }),
+    }
     ordered.push(item)
     index.set(key, item)
   }
@@ -257,6 +268,7 @@ async function buildState(deps, workspace, sessionId) {
       key: item.key,
       path: item.path,
       ...(item.title === undefined ? {} : { title: item.title }),
+      searchEnabled: item.searchEnabled !== false,
       roots,
     })
   }
@@ -304,6 +316,11 @@ async function mutate(deps, body) {
   const key = canonicalKey(workspace)
   const existing = (await deps.store.list(workspace)).map((root) => ({ ...root }))
   const config = typeof deps.config === 'function' ? deps.config() : deps.config
+
+  if (action === 'search') {
+    await deps.store.setSearchEnabled(workspace, body.enabled !== false)
+    return buildState(deps, workspace)
+  }
 
   if (action === 'attach') {
     const requested = Array.isArray(body.paths)
