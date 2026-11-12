@@ -197,9 +197,11 @@ client 侧的 fail-soft 与 host 侧同构：`ctx.get('slots')` 包在 try 里�
 
 **⑤ skill provider 返回的名字必须是 kebab-case，且每个候选要带 `invocation`。** `@deepseek-ai/dsh-skill` 用 `/^[a-z0-9]+(?:-[a-z0-9]+)*$/` 校验候选名，一个不合格就让**整轮运行**失败（`skill provider "dsh-multi-root" returned invalid skill name "web-backend:api-test"`），而不是只忽略那个技能。所以命名空间分隔符只能用 `-`，并且两段（aliasId 与目录名）都要过一遍 `kebab()`。修完名字还会撞上第二道门：宿主拼技能目录时直接读 `skill.invocation.modelInvocable`（`skills.map(skill => ({ …, modelInvocable: skill.invocation.modelInvocable }))`），候选缺 `invocation` 就是 `Cannot read properties of undefined (reading 'modelInvocable')`，同样整轮失败——所以 `list()` 的候选和 `get()` 的 `SkillDefinition` 都要带 `invocation: { modelInvocable: true, userInvocable: true }`（`SkillSummary` 的类型里这个字段是必需的）。容器一旦报这类错，用户看到的是"发 Prompt 直接失败"，比面板里的任何问题都刺眼——这也是"插件坏了不能影响 DSH"这条约束的直接体现：一个字段漏了，整个 provider 连坐。
 
+**⑥ 客户端包按文件指纹缓存一年，刷页面救不了。** `@deepseek-ai/dsh-client-modules` 把每个客户端包按 `mtime`/`ctime`/`size` 算成 12 位指纹（`framedHash("plugin-artifact", …)`），写进 URL：`/plugins/??<id>/client.js&rev=<hash>`，并回 `cache-control: public, max-age=31536000, immutable`。字节也在 reconcile 时读进内存，和 URL 一起冻结。于是"改完文件 → 用户按 Ctrl+R"看到的永远是旧包：URL 没变、缓存是 immutable、服务端那份内存还是旧的。指纹只在两种情况下变——插件这行重启（`reconcilePackage`），或者有人调用 `clientModules.rebuilt(id)`（HMR 走的就是这条）。`dsh.client` 本身只接受 `platform`/`inject`/`external`/`immediately`，没有自定义入口路径或手写哈希的余地。所以本插件加了 `devReload`：watch 自己的包，变了就 `rebuilt()`，指纹换了、URL 换了、页面自动拿新代码。另外 `cordis.patch.yml` 里的配置是 DSH 启动时读入的，改配置必须重启应用，热重载插件不够——这点用 `maxRoots: 3` 实测过：改完 patch、只重启插件行，`/state` 仍报 16。
+
 ## 9. 验证手段
 
-- `node --test`：**83 个用例**（roots 8 / store 6 / prompt 8 / tool 18 / apply 9 / routes 17 / client 6 / require 2 / id 9），覆盖改名去重、id 稳定性、预算裁剪、损坏恢复、并发写、注册失败隔离、路由鉴权与路径逃逸、client 半边四个槽位的注册与渲染。不需要装 DSH 就能跑。
+- `node --test`：**87 个用例**（roots 8 / store 6 / prompt 8 / tool 18 / apply 9 / routes 17 / client 6 / require 2 / id 9 / dev-reload 4），覆盖改名去重、id 稳定性、预算裁剪、损坏恢复、并发写、注册失败隔离、路由鉴权与路径逃逸、client 半边四个槽位的注册与渲染、客户端包热重载的降级路径。不需要装 DSH 就能跑。
 - probe profile：复制 profile、junction 出 node_modules、只加本插件，起真实实例确认 `apply() reached` 与 `mounted …`，且宿主正常监听端口。
 - `--dump-config`：确认补丁行被 loader 接受，且组合树里只有我们这一行新增。
 - 真机：`GET /dsh-multi-root/state` 返回 200 与 6 个根；`cordis_inspect_query` 的 `Slots/listSubTree` 里 `sidebar.footer.action` / `shell.overlay` / `settings.section` 的 occupants 都有本插件且 `active: true`；`workspace_roots` / `workspace_find` 出现在模型工具列表里并能真实 attach → list → find → detach。

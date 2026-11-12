@@ -39,6 +39,7 @@ export const DEFAULTS = Object.freeze({
   injectPrompt: true,
   promptMaxChars: 4000,
   showGit: true,
+  devReload: false,
 })
 
 /**
@@ -128,6 +129,8 @@ function buildSchema(z) {
       .description('Character budget for the attached-root table.'),
     showGit: z.boolean().default(DEFAULTS.showGit)
       .description("Include each root's git branch and dirty flag in the table."),
+    devReload: z.boolean().default(DEFAULTS.devReload)
+      .description('Watch this plugin\'s client bundle and republish it after every edit (local development only).'),
   }
   const marked = Object.fromEntries(Object.entries(fields).map(([key, field]) => [
     key,
@@ -176,5 +179,6 @@ export function resolveConfig(input) {
       ? promptMaxChars
       : DEFAULTS.promptMaxChars,
     showGit: input?.showGit !== false,
+    devReload: input?.devReload === true,
   }
 }

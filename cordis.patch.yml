@@ -33,3 +33,9 @@
         # Read each root's git branch and dirty flag for the table. Costs one
         # short `git` invocation per root, cached in-process.
         showGit: true
+        # Watch this plugin's own client bundle and ask the host to republish it
+        # after every edit. The host fingerprints a client bundle by mtime/ctime/
+        # size and serves it with an immutable year-long cache, so without this an
+        # edited bundle stays invisible until the plugin row restarts. Installed
+        # copies never touch the file, so the watcher just stays idle.
+        devReload: true

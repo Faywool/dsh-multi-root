@@ -28,6 +28,7 @@ import { createFindTool, FIND_TOOL_NAME } from './find-tool.js'
 import { COMMAND_NAME, registerCommand } from './command.js'
 import { registerSkillProvider, SKILL_PROVIDER } from './skills.js'
 import { registerRoutes } from './routes.js'
+import { startDevReload } from './dev-reload.js'
 import { guard, service } from './context.js'
 import { renderRootsTable, sectionWorkspacePath, SECTION_NAME } from './prompt.js'
 import { describeError, debug, noteDiagnostic, report, storePath } from './util.js'
@@ -198,6 +199,17 @@ function mount(ctx, configOf) {
     }
     if (registerRoutes(ctx, deps, webServer)) note('panel')
   })
+
+  // Local development convenience: the host fingerprints the client bundle by
+  // mtime/ctime/size and serves it with an immutable year-long cache, so an
+  // edited bundle is invisible to an open page until the row restarts or the
+  // host republishes it. This does the republishing. Installed builds never
+  // touch the file, so the watcher simply stays idle.
+  if (configOf().devReload === true) {
+    withService(ctx, 'clientModules', 'client hot reload', (clientModules) => {
+      if (startDevReload({ ctx, id: name, clientModules, logger })) note('hot reload')
+    })
+  }
 
   // One line that says what actually took effect. Contributions marked with `*`
   // wait for their service, so they may still land after this line: each one
