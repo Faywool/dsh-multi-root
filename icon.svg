@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Multi-root workspace">
+  <rect x="0" y="0" width="64" height="64" rx="14" fill="#1F2937"/>
+  <g transform="translate(8.6 8.9) scale(1.95)" fill="none" stroke="#E6E8EB" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3.2 3.6 7.1 12 11l8.4-3.9L12 3.2Z"/>
+    <path d="m3.6 12 8.4 3.9 8.4-3.9"/>
+    <path d="m3.6 16.6 8.4 3.9 8.4-3.9"/>
+  </g>
+</svg>

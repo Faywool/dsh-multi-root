@@ -4,14 +4,18 @@
   "description": "Attach extra repositories to one DSH workspace: a prompt section, a workspace_roots tool, a cross-root file finder, a sidebar dialog and a settings section. Additive only - it never replaces ctx.fs or ctx.sandbox, so a broken install cannot take DSH down.",
   "type": "module",
   "main": "./src/index.js",
+  "icon": "./icon.svg",
   "exports": {
     ".": "./src/index.js",
     "./client": "./src/client.js",
+    "./locale/*.json": "./locale/*.json",
     "./package.json": "./package.json"
   },
   "files": [
     "src",
     "scripts",
+    "locale",
+    "icon.svg",
     "cordis.patch.yml",
     "docs",
     "CHANGELOG.md",

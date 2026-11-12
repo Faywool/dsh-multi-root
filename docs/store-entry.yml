@@ -12,6 +12,7 @@ only that file (at most 3 entries per PR).
 url: https://github.com/Faywool/dsh-multi-root
 name: Faywool/dsh-multi-root
 category: ui
+icon: https://raw.githubusercontent.com/Faywool/dsh-multi-root/main/assets/icon.png
 description:
   en: Mount extra repositories on one DSH workspace through a sidebar dialog and two model tools, workspace_roots and workspace_find, with per-root read-only mode, skill namespaces and git status. The manifest only adds a row, so a broken plugin cannot take DSH down.
   zh: 通过侧栏弹窗和两个模型工具 workspace_roots、workspace_find，把一个 DSH 工作区挂载到多个仓库，支持每根只读/可写、技能命名空间与 git 状态；manifest 只增加一行，插件坏掉不会拖垮 DSH。
@@ -24,7 +25,9 @@ Notes for the submission:
   ending with a period, and is checked against the source code.
 - `category: ui` matches the neighbouring workspace plugins; a near miss is
   corrected by a maintainer rather than rejected.
-- `icon:` is optional. Without it the storefront falls back to the owner's
-  avatar. Only GitHub-hosted raster images are accepted.
+- `icon:` must be a GitHub-hosted raster image (png/jpeg/webp, about 96px on
+  screen). `assets/icon.png` is that file; the SVG next to it is what the
+  in-app plugin list uses, because a package may ship SVG but the storefront
+  does not accept it.
 - `screenshots.json` in this repository already declares one screenshot, so the
   detail page picks it up without any extra field in the entry.

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Multi-root workspace",
+    "description": "Attach extra repositories to one DSH workspace: the root table goes into the prompt, plus workspace_roots and workspace_find tools, a sidebar dialog and a settings page. Additive only - never replaces fs or sandbox."
+  }
+}

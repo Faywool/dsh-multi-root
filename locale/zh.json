@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "多仓库工作区",
+    "description": "给一个 DSH 工作区挂载额外的仓库目录：仓库根表写进系统提示词，配 workspace_roots 与 workspace_find 两个工具、侧栏弹窗与设置页；只做加法，不替换 fs 或 sandbox。"
+  }
+}

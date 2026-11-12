@@ -150,11 +150,12 @@
         '.mr-entry-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}',
         '.mr-entry-size{color:var(--dsw-alias-label-secondary,#9a9a9a);font-size:11px;white-space:nowrap}',
         '.mr-preview{margin:0;padding:8px 10px;max-height:260px;overflow:auto;border-top:1px solid var(--dsw-alias-border-l1,#333);font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;line-height:1.45;white-space:pre;color:var(--dsw-alias-label-primary,#e6e6e6)}',
-        '.mr-footer-btn{display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;height:32px;padding:0 8px;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--mr-btn-fg-dim);font:inherit;font-size:13px;cursor:pointer;text-align:left;white-space:nowrap;overflow:hidden;transition:var(--mr-btn-ease)}',
+        '.mr-footer-btn{display:flex;align-items:center;justify-content:flex-start;gap:9px;width:100%;box-sizing:border-box;height:34px;padding:0 10px;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--mr-btn-fg);font:inherit;font-size:13px;font-weight:500;line-height:1;cursor:pointer;text-align:left;white-space:nowrap;overflow:hidden;appearance:none;-webkit-appearance:none;transition:var(--mr-btn-ease)}',
         '.mr-footer-btn:hover{background:var(--mr-btn-bg-hover);border-color:var(--mr-btn-border);color:var(--mr-btn-fg)}',
         '.mr-footer-btn:active{background:var(--mr-btn-bg-active);border-color:var(--mr-btn-border-hover);color:var(--mr-btn-fg)}',
-        '.mr-footer-btn:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#4a8fd6);outline-offset:1px}',
+        '.mr-footer-btn:focus-visible{outline:2px solid var(--mr-btn-border-hover);outline-offset:1px}',
         '.mr-footer-btn[data-rail="true"]{justify-content:center;padding:0}',
+        '.mr-footer-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
         '.mr-footer-label{overflow:hidden;text-overflow:ellipsis}',
         '.mr-overlay{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);pointer-events:auto}',
         '.mr-dialog{display:flex;flex-direction:column;width:min(820px,92vw);max-height:82vh;background:var(--dsw-alias-bg-layer-1,#1b1b1b);border:1px solid var(--dsw-alias-border-l1,#3a3a3a);border-radius:12px;box-shadow:0 24px 70px rgba(0,0,0,.55);overflow:hidden}',
@@ -932,6 +933,8 @@
 
       function PanelIcon(props) {
         var size = typeof props.size === 'number' ? props.size : 18
+        // Three stacked layers: "several repositories on top of one workspace".
+        // Stroked paths keep it legible at 16px and inherit the button colour.
         return h('svg', {
           width: size,
           height: size,
@@ -942,9 +945,12 @@
           strokeLinecap: 'round',
           strokeLinejoin: 'round',
           'aria-hidden': 'true',
+          focusable: 'false',
+          style: { display: 'block', flex: 'none' },
         },
-          h('path', { d: 'M3 7.5A1.5 1.5 0 0 1 4.5 6H9l1.8 2.2h8.7A1.5 1.5 0 0 1 21 9.7v8.8A1.5 1.5 0 0 1 19.5 20h-15A1.5 1.5 0 0 1 3 18.5z' }),
-          h('path', { d: 'M7 3.2h4.2l1.5 1.9h4.6' }),
+          h('path', { d: 'M12 3.2 3.6 7.1 12 11l8.4-3.9L12 3.2Z' }),
+          h('path', { d: 'm3.6 12 8.4 3.9 8.4-3.9' }),
+          h('path', { d: 'm3.6 16.6 8.4 3.9 8.4-3.9' }),
         )
       }
 
